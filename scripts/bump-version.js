@@ -26,7 +26,7 @@ pkg.version = newVersion;
 manifest.version = newVersion;
 
 // Write Files
-fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 4));
-fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4));
+fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 4), 'utf8');
+fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), 'utf8');
 
 console.log('Version updated successfully.');

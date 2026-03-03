@@ -2,51 +2,39 @@
 <html>
 
 <head>
-  <title>LLM Orchestrator</title>
-  <link rel="stylesheet" href="popup.css">
+  <style>
+    body {
+      width: 200px;
+      padding: 10px;
+      font-family: sans-serif;
+      text-align: center;
+    }
+
+    button {
+      padding: 10px;
+      width: 100%;
+      background: #2196f3;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background: #1976d2;
+    }
+
+    p {
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
 </head>
 
 <body>
-  <div class="container">
-    <h2>LLM Orchestrator</h2>
-    <p>Export Gemini or ChatGPT history.</p>
-    <button id="saveBtn">Save as Markdown</button>
-    <button id="copyBtn" style="margin-top: 5px;">Copy to Clipboard</button>
-    <div style="margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 5px;">
-      <input type="checkbox" id="autoCopyToggle">
-      <label for="autoCopyToggle" style="font-size: 13px; user-select: none;">Auto-Copy New Responses</label>
-    </div>
-
-    <!-- Brainstorm Section -->
-    <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
-    <h3 style="margin: 0 0 10px; font-size: 14px;">Brainstorm Loop</h3>
-
-    <label for="topicInput" style="display:block; text-align: left; font-size: 12px; margin-bottom: 5px;">Topic:</label>
-    <input type="text" id="topicInput" placeholder="e.g. Future of AI"
-      style="width: 100%; box-sizing: border-box; margin-bottom: 10px; padding: 5px;">
-
-    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-      <div style="flex: 1;">
-        <label style="font-size: 12px;">Rounds:</label>
-        <input type="number" id="roundsInput" value="3" min="1" max="10" style="width: 100%; padding: 5px;">
-      </div>
-      <div style="flex: 2; display: flex; align-items: flex-end;">
-        <button id="startBrainstormBtn" style="background-color: #007bff; width: 100%;">Start Loop</button>
-        <button id="stopBrainstormBtn" style="background-color: #dc3545; width: 100%; display: none;">Stop</button>
-      </div>
-    </div>
-
-    <!-- Debug Dashboard -->
-    <div id="dashboard"
-      style="display: flex; gap: 10px; margin-bottom: 5px; font-size: 11px; background: #333; padding: 5px; border-radius: 4px;">
-      <div style="flex: 1;">Status: <span id="dashStatus" style="font-weight: bold; color: #888;">Idle</span></div>
-      <div style="flex: 1;">Round: <span id="dashRound" style="font-weight: bold;">0/0</span></div>
-    </div>
-
-    <div id="status"
-      style="white-space: pre-wrap; font-size: 11px; max-height: 100px; overflow-y: auto; text-align: left; background: #222; padding: 5px; border-radius: 4px; margin-top: 5px;">
-    </div>
-  </div>
+  <h3>LLM Orchestrator</h3>
+  <p>Control the orchestration from the Side Panel.</p>
+  <button id="openPanelBtn">Open Side Panel</button>
   <script type="module" src="popup.ts"></script>
 </body>
 

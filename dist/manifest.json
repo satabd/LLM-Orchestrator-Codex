@@ -1,14 +1,15 @@
 {
     "manifest_version": 3,
     "name": "LLM Orchestrator",
-    "version": "1.5.6",
+    "version": "1.5.16",
     "description": "Extracts Gemini and ChatGPT chat history and saves it as a Markdown file.",
     "permissions": [
         "activeTab",
         "scripting",
         "clipboardWrite",
         "storage",
-        "tabs"
+        "tabs",
+        "sidePanel"
     ],
     "host_permissions": [
         "https://gemini.google.com/*",
@@ -20,6 +21,10 @@
         "service_worker": "background.js"
     },
     "action": {
-        "default_popup": "popup.html"
+        "default_popup": "popup.html",
+        "default_title": "Open Side Panel"
+    },
+    "side_panel": {
+        "default_path": "panel.html"
     }
 }
