@@ -60,28 +60,9 @@ async function loadState() {
 // Initialize
 loadState();
 
-// Configure the side panel to open programmatically, not by default via popup
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
-
-chrome.action.onClicked.addListener((tab) => {
-    // Open the side panel manually in the current window
-    if (tab.windowId) {
-        chrome.sidePanel.open({ windowId: tab.windowId });
-    }
-
-    // Check tabs and spawn if missing
-    chrome.tabs.query({}, (tabsList) => {
-        const geminiFound = tabsList.some(t => t.url && t.url.includes("gemini.google.com"));
-        const chatGPTFound = tabsList.some(t => t.url && (t.url.includes("chatgpt.com") || t.url.includes("openai.com")));
-
-        if (!geminiFound) {
-            chrome.tabs.create({ url: "https://gemini.google.com/app", active: false });
-        }
-        if (!chatGPTFound) {
-            chrome.tabs.create({ url: "https://chatgpt.com", active: false });
-        }
-    });
-});
+// Configure the side panel to open natively when the extension icon is clicked
+// This avoids manual `chrome.sidePanel.open` calls which can throw internal core.js payload errors
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
 // ---- Log Helper ----
 function log(msg: string, type: 'info' | 'error' | 'system' = 'info') {

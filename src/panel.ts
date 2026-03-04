@@ -68,6 +68,25 @@ let currentHistorySessions: any[] = [];
 // --- Initialization ---
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Auto-open missing AI tabs on side panel load
+    chrome.tabs.query({}, (tabs) => {
+        const hasGemini = tabs.some(t => t.url && t.url.includes("gemini.google.com"));
+        const hasChat = tabs.some(t => t.url && (t.url.includes("chatgpt.com") || t.url.includes("openai.com")));
+
+        let openedAny = false;
+        if (!hasGemini) {
+            chrome.tabs.create({ url: "https://gemini.google.com/app", active: false });
+            openedAny = true;
+        }
+        if (!hasChat) {
+            chrome.tabs.create({ url: "https://chatgpt.com", active: false });
+            openedAny = true;
+        }
+
+        // If we spawned new tabs, wait for Chrome to assign URLs/IDs before refreshing the dropdowns
+        if (openedAny) setTimeout(refreshTabs, 1500);
+    });
+
     refreshTabs();
     pollStatus();
     setInterval(() => {
