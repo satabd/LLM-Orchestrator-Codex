@@ -64,14 +64,27 @@ const ELEMENTS = {
 
 // Global variables
 let currentHistorySessions: any[] = [];
+let hasAttemptedAutoOpen = false;
 
-// --- Initialization ---
+// URL Checkers
+const isGeminiUrl = (url?: string) => {
+    if (!url) return false;
+    try { return new URL(url).hostname.includes("gemini.google.com"); } catch { return false; }
+};
+const isChatUrl = (url?: string) => {
+    if (!url) return false;
+    try {
+        const hn = new URL(url).hostname;
+        return hn.includes("chatgpt.com") || hn.includes("openai.com");
+    } catch { return false; }
+};
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Auto-open missing AI tabs on side panel load
+function attemptAutoSpawn() {
+    if (hasAttemptedAutoOpen) return;
+
     chrome.tabs.query({}, (tabs) => {
-        const hasGemini = tabs.some(t => t.url && t.url.includes("gemini.google.com"));
-        const hasChat = tabs.some(t => t.url && (t.url.includes("chatgpt.com") || t.url.includes("openai.com")));
+        const hasGemini = tabs.some(t => isGeminiUrl(t.url));
+        const hasChat = tabs.some(t => isChatUrl(t.url));
 
         let openedAny = false;
         if (!hasGemini) {
@@ -83,9 +96,15 @@ document.addEventListener('DOMContentLoaded', () => {
             openedAny = true;
         }
 
-        // If we spawned new tabs, wait for Chrome to assign URLs/IDs before refreshing the dropdowns
         if (openedAny) setTimeout(refreshTabs, 1500);
+        hasAttemptedAutoOpen = true; // Mark as attempted
     });
+}
+
+// --- Initialization ---
+
+document.addEventListener('DOMContentLoaded', () => {
+    attemptAutoSpawn();
 
     refreshTabs();
     pollStatus();
@@ -128,8 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function refreshTabs() {
     chrome.tabs.query({}, (tabs) => {
-        const geminiTabs = tabs.filter(t => t.url && t.url.includes("gemini.google.com"));
-        const chatGPTTabs = tabs.filter(t => t.url && (t.url.includes("chatgpt.com") || t.url.includes("openai.com")));
+        const geminiTabs = tabs.filter(t => isGeminiUrl(t.url));
+        const chatGPTTabs = tabs.filter(t => isChatUrl(t.url));
 
         populateSelect(ELEMENTS.geminiSelect, geminiTabs);
         populateSelect(ELEMENTS.chatGPTSelect, chatGPTTabs);

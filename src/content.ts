@@ -44,6 +44,7 @@ async function handleRunPrompt(text: string) {
         const richTextEditor = document.querySelector('.ql-editor');
         if (richTextEditor) {
             (richTextEditor as HTMLElement).innerHTML = `<p>${text}</p>`;
+            richTextEditor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
         } else {
             setTextInEditable(inputArea, text);
         }
@@ -70,10 +71,12 @@ function setTextInEditable(el: HTMLElement, text: string) {
     if (el.tagName === 'TEXTAREA') {
         (el as HTMLTextAreaElement).value = text;
         el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
     } else {
         el.focus();
         document.execCommand('selectAll', false, undefined);
         document.execCommand('insertText', false, text);
+        el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
     }
 }
 
@@ -117,36 +120,56 @@ function isStopButtonVisible(): boolean {
 
 async function waitForIdle(): Promise<void> {
     return new Promise(resolve => {
-        // If already stable, resolve immediately
-        if (!isStopButtonVisible()) {
-            // slight delay to double-check transient states
-            setTimeout(() => {
-                if (!isStopButtonVisible()) resolve();
-                else waitForIdle().then(resolve);
-            }, 500);
-            return;
-        }
-
-        const observer = new MutationObserver((mutations) => {
-            if (!isStopButtonVisible()) {
-                // Stop button gone!
-                observer.disconnect();
-                // Stabilization delay
-                setTimeout(resolve, 1000);
-            }
-        });
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true,
-            attributes: true // Stop button might just change attribute
-        });
-
-        // Safety timeout (180s)
+        // 1. Give the UI time to register the click, make the network request, and show the Stop button
         setTimeout(() => {
-            observer.disconnect();
-            resolve();
-        }, 180000);
+            if (isStopButtonVisible()) {
+                // Wait for stop button to disappear
+                const observer = new MutationObserver(() => {
+                    if (!isStopButtonVisible()) {
+                        observer.disconnect();
+                        checkTextStabilization();
+                    }
+                });
+                observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+            } else {
+                checkTextStabilization();
+            }
+        }, 2000);
+
+        function checkTextStabilization() {
+            let lastText = getLastResponseText();
+            let stableCount = 0;
+            let totalChecks = 0;
+
+            const checkInterval = setInterval(() => {
+                totalChecks++;
+                const currentText = getLastResponseText();
+
+                // If text hasn't changed
+                if (currentText === lastText) {
+                    stableCount++;
+                } else {
+                    stableCount = 0;
+                    lastText = currentText;
+                }
+
+                // Consider stable if no changes for 2.5 seconds (5 ticks)
+                // If it's completely empty, wait up to 10 seconds (20 ticks) before giving up
+                const isStable = stableCount >= 5;
+                const canResolve = currentText.length > 0 ? isStable : (isStable && totalChecks > 20);
+
+                if (canResolve) {
+                    clearInterval(checkInterval);
+                    resolve();
+                }
+            }, 500);
+
+            // Absolute maximum timeout (3 minutes)
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                resolve();
+            }, 180000);
+        }
     });
 }
 
