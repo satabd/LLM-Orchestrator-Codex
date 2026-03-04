@@ -64,6 +64,7 @@ const ELEMENTS = {
 
 // Global variables
 let currentHistorySessions: any[] = [];
+let hasAttemptedAutoOpen = false;
 
 // --- Initialization ---
 
@@ -108,6 +109,27 @@ function refreshTabs() {
     chrome.tabs.query({}, (tabs) => {
         const geminiTabs = tabs.filter(t => t.url && t.url.includes("gemini.google.com"));
         const chatGPTTabs = tabs.filter(t => t.url && (t.url.includes("chatgpt.com") || t.url.includes("openai.com")));
+
+        if (!hasAttemptedAutoOpen) {
+            let openedAny = false;
+
+            if (geminiTabs.length === 0) {
+                chrome.tabs.create({ url: "https://gemini.google.com/app", active: false });
+                openedAny = true;
+            }
+            if (chatGPTTabs.length === 0) {
+                chrome.tabs.create({ url: "https://chatgpt.com", active: false });
+                openedAny = true;
+            }
+
+            hasAttemptedAutoOpen = true;
+
+            if (openedAny) {
+                // Give Chrome time to spin up the tabs and assign IDs/URLs before refreshing
+                setTimeout(refreshTabs, 1500);
+                return;
+            }
+        }
 
         populateSelect(ELEMENTS.geminiSelect, geminiTabs);
         populateSelect(ELEMENTS.chatGPTSelect, chatGPTTabs);

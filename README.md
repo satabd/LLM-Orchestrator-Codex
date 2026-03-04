@@ -26,10 +26,10 @@ Because this extension operates by directly scripting actions within `gemini.goo
 
 ## 🛠️ How to Use
 
-1. **Prepare the Models:** Open a tab for [ChatGPT](https://chatgpt.com) and a tab for [Gemini](https://gemini.google.com). *Ensure you are logged into both.*
-2. **Open the Orchestrator:** Click the LLM Orchestrator extension icon to open the Side Panel UI.
+1. **Open the Orchestrator:** Click the LLM Orchestrator extension icon to open the Side Panel UI.
+2. **Auto-Tab Spawning:** If you don't already have [ChatGPT](https://chatgpt.com) and [Gemini](https://gemini.google.com) open, the extension will instantly open them in the background for you. *(Ensure you are logged into both).*
 3. **Configure the Run:**
-   - The panel should automatically detect your active ChatGPT and Gemini tabs.
+   - The panel will automatically detect your active ChatGPT and Gemini tabs.
    - Choose the number of **Rounds** (e.g., 3 rounds means a back-and-forth cycle 3 times).
    - Select a **Brainstorming Role**.
    - Input your initial **Seed Prompt / Topic**.
