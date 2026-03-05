@@ -454,6 +454,22 @@ async function runBrainstormLoop() {
 async function sendPromptToTab(tabId: number, prompt: string): Promise<string> {
     await ensureInjected(tabId);
 
+    // Focus the tab first to ensure the text inputs are active and visible in the DOM
+    try {
+        await chrome.tabs.update(tabId, { active: true });
+
+        // Find the window this tab belongs to and make sure the window itself is focused
+        const tab = await chrome.tabs.get(tabId);
+        if (tab.windowId) {
+            await chrome.windows.update(tab.windowId, { focused: true });
+        }
+
+        // Wait a moment for Chrome's rendering engine to settle
+        await wait(200);
+    } catch (e) {
+        log(`Failed to focus tab ${tabId}`, 'error');
+    }
+
     let tries = 0;
     let sent = false;
 
