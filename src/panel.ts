@@ -67,15 +67,24 @@ let currentHistorySessions: any[] = [];
 let hasAttemptedAutoOpen = false;
 
 // URL Checkers
-const isGeminiUrl = (url?: string) => {
-    if (!url) return false;
-    try { return new URL(url).hostname.includes("gemini.google.com"); } catch { return false; }
-};
-const isChatUrl = (url?: string) => {
-    if (!url) return false;
+const isGeminiUrl = (tab: chrome.tabs.Tab) => {
     try {
-        const hn = new URL(url).hostname;
-        return hn.includes("chatgpt.com") || hn.includes("openai.com");
+        if (tab.url && new URL(tab.url).hostname.includes("gemini.google.com")) return true;
+        if (tab.pendingUrl && new URL(tab.pendingUrl).hostname.includes("gemini.google.com")) return true;
+        return false;
+    } catch { return false; }
+};
+const isChatUrl = (tab: chrome.tabs.Tab) => {
+    try {
+        if (tab.url) {
+            const hn = new URL(tab.url).hostname;
+            if (hn.includes("chatgpt.com") || hn.includes("openai.com")) return true;
+        }
+        if (tab.pendingUrl) {
+            const hn = new URL(tab.pendingUrl).hostname;
+            if (hn.includes("chatgpt.com") || hn.includes("openai.com")) return true;
+        }
+        return false;
     } catch { return false; }
 };
 
@@ -83,8 +92,8 @@ function attemptAutoSpawn() {
     if (hasAttemptedAutoOpen) return;
 
     chrome.tabs.query({}, (tabs) => {
-        const hasGemini = tabs.some(t => isGeminiUrl(t.url));
-        const hasChat = tabs.some(t => isChatUrl(t.url));
+        const hasGemini = tabs.some(t => isGeminiUrl(t));
+        const hasChat = tabs.some(t => isChatUrl(t));
 
         let openedAny = false;
         if (!hasGemini) {
@@ -147,8 +156,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function refreshTabs() {
     chrome.tabs.query({}, (tabs) => {
-        const geminiTabs = tabs.filter(t => isGeminiUrl(t.url));
-        const chatGPTTabs = tabs.filter(t => isChatUrl(t.url));
+        const geminiTabs = tabs.filter(t => isGeminiUrl(t));
+        const chatGPTTabs = tabs.filter(t => isChatUrl(t));
 
         populateSelect(ELEMENTS.geminiSelect, geminiTabs);
         populateSelect(ELEMENTS.chatGPTSelect, chatGPTTabs);
@@ -177,6 +186,8 @@ function populateSelect(select: HTMLSelectElement, tabs: chrome.tabs.Tab[]) {
     // Restore selection if still valid, else default to first
     if (savedId && tabs.some(t => String(t.id) === savedId)) {
         select.value = savedId;
+    } else if (select.options.length > 0) {
+        select.value = select.options[0].value;
     }
 }
 

@@ -29,6 +29,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ text: mainScrape() });
             break;
     }
+    return false;
 });
 
 // --- Action Implementations ---
