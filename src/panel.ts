@@ -323,6 +323,7 @@ function startRun() {
     const chatGPTId = parseInt(ELEMENTS.chatGPTSelect.value);
     const rounds = parseInt(ELEMENTS.roundsInput.value);
     const role = ELEMENTS.roleSelect.value;
+    const mode = ELEMENTS.modeSelect.value;
     const topic = ELEMENTS.topicInput.value.trim();
 
     let customGeminiPrompt = "";
@@ -346,6 +347,7 @@ function startRun() {
         geminiTabId: geminiId,
         chatGPTTabId: chatGPTId,
         rounds,
+        mode,
         topic,
         role,
         customGeminiPrompt,
@@ -493,8 +495,18 @@ async function handleExport(type: 'last' | 'full') {
                 return;
             }
 
-            downloadFile(text, `export-${type}-${Date.now()}.md`);
-            ELEMENTS.exportStatus.textContent = t('exportDone', currentLang);
+            // Instead of downloading, save to storage and open new tab
+            chrome.storage.local.set({
+                transcriptData: text,
+                transcriptMeta: {
+                    title: `Active Run Export (${type})`,
+                    date: Date.now(),
+                    filename: `export-${type}-${Date.now()}.md`
+                }
+            }, () => {
+                chrome.tabs.create({ url: 'transcript.html' });
+                ELEMENTS.exportStatus.textContent = t('exportDone', currentLang);
+            });
         });
 
     } catch (e) {
@@ -602,7 +614,21 @@ function viewHistorySession(id: string) {
     session.transcript.forEach((entry: any) => {
         const div = document.createElement('div');
         div.className = `log-entry ${entry.agent === 'System' ? 'system' : ''}`;
-        div.innerHTML = `<strong>${entry.agent}:</strong><br/>${entry.text.replace(/\n/g, '<br/>')}`;
+        
+        let formattedText = entry.text;
+        
+        // Highlight Escalation blocks beautifully
+        formattedText = formattedText.replace(
+            /\[ESCALATION_REQUIRED\]([\s\S]*?)\[\/ESCALATION_REQUIRED\]/ig, 
+            (match: string, p1: string) => {
+                return `<div style="background:var(--bg-secondary); border-left:4px solid var(--primary-color); padding:8px; margin:8px 0; border-radius:4px;">
+                            <strong>⚠️ Escalation Required</strong><br/>
+                            <div style="white-space:pre-wrap; font-size:0.9em; margin-top:4px;">${p1.trim()}</div>
+                        </div>`;
+            }
+        ).replace(/\n/g, '<br/>');
+
+        div.innerHTML = `<strong>${entry.agent}:</strong><br/>${formattedText}`;
         ELEMENTS.historyDetailContent.appendChild(div);
     });
 
@@ -619,7 +645,17 @@ function exportHistorySession(id: string) {
         md += `### ${entry.agent}\n${entry.text}\n\n`;
     });
 
-    downloadFile(md, `session_${id}.md`);
+    // Instead of downloading, save to storage and open new tab
+    chrome.storage.local.set({
+        transcriptData: md,
+        transcriptMeta: {
+            title: `History: ${session.topic.substring(0, 30)}...`,
+            date: session.timestamp,
+            filename: `session_${id}.md`
+        }
+    }, () => {
+        chrome.tabs.create({ url: 'transcript.html' });
+    });
 }
 
 function deleteHistorySession(id: string) {

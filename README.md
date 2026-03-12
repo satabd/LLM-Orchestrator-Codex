@@ -8,7 +8,7 @@ A powerful Chrome Extension that orchestrates an automated, highly configurable,
 - **Dynamic Brainstorming Roles:** Choose from several predefined psychological and intellectual roles to steer the debate (e.g., *Expander, Devil's Advocate, First Principles, ELI5, Historian vs. Futurist*).
 - **Custom Perspectives:** Don't like the predefined roles? Input your own custom system prompts to instruct each AI on how they should approach their turns.
 - **Human-in-the-Loop (Pause & Inject):** Intervene at any point! Pause the loop to inject strict "Human Moderator" overrides to force the AIs to pivot or course-correct their brainstorm.
-- **Offline Transcript History:** Every run is progressively saved to your browser's local IndexedDB. You can review your past sessions or export the transcripts to Markdown anytime via the History tab.
+- **Offline Transcript History:** Every run is progressively saved to your browser's local IndexedDB. You can review your past sessions or export the transcripts to proper, richly-formatted Markdown (`.md`) anytime via the History tab. Formats like bolding, headers, and code blocks are preserved.
 - **Post-Run Synthesizer:** When a brainstorm finishes, trigger a "Final Conclusion" to have Gemini read the entire debate and synthesize a definitive Executive Summary.
 
 ## 🚀 Installation Strategy
@@ -18,9 +18,10 @@ Because this extension operates by directly scripting actions within `gemini.goo
 1. Clone or download this repository.
 2. Run `npm install` to install the dependencies.
 3. Run `npm run build` to compile the TypeScript into the `dist` folder.
-4. Open Google Chrome and navigate to `chrome://extensions`.
-5. Enable **Developer Mode** (toggle usually in the top right).
-6. Click **Load Unpacked** and select the `dist` folder you just generated.
+4. *(Optional)* Run `npm run pack` to generate a `.zip` archive of the `dist` folder for easy sharing or distribution.
+5. Open Google Chrome and navigate to `chrome://extensions`.
+6. Enable **Developer Mode** (toggle usually in the top right).
+7. Click **Load Unpacked** and select the `dist` folder you just generated (or unzip the generated archive if sharing).
 
 > 📝 **Note:** `vite.config.ts` and `scripts/bump-version.js` ensure that `dist/manifest.json` is generated with the strict UTF-8 encoding Chrome requires.
 
@@ -40,7 +41,7 @@ Because this extension operates by directly scripting actions within `gemini.goo
 ## 🏗️ Architecture
 
 - **`background.ts` (Service Worker):** The central brain. It maintains the `BrainstormState`, executes the orchestration while-loop, and handles IndexedDB `db.ts` calls for history tracking.
-- **`content.ts` (Content Script):** The puppeteer. Injected directly into the DOM of the AI chat interfaces to programmatically find the textarea, input text, click the "Send" button, and scrape the resulting model responses. 
+- **`content.ts` (Content Script):** The puppeteer. Injected directly into the DOM of the AI chat interfaces to programmatically find the textarea, input text, click the "Send" button, and scrape the resulting model responses. It utilizes `turndown` to ensure the scraped DOM elements are accurately converted back into raw Markdown format.
 - **`panel.ts/html/css` (Side Panel):** The command center UI for configuration, run tracking, log viewing, and Human-in-the-loop intervention.
 - **`manifest.json` (V3):** Built for MV3 using `sidePanel`, `storage`, `tabs`, and `scripting` permissions.
 

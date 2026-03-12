@@ -3,10 +3,19 @@
 
 import { createSession, updateSession, getAllSessions, deleteSession, BrainstormSession } from './db.js';
 
+interface EscalationPayload {
+    reason: string;
+    decision_needed: string;
+    options: string[];
+    recommended_option: string;
+    next_step_after_decision: string;
+}
+
 interface BrainstormState {
     active: boolean;
     sessionId: string | null;
     prompt: string;
+    mode: "PING_PONG" | "GEMINI_ONLY" | "ChatGPT_ONLY" | "DISCUSSION";
     role: string;
     customGeminiPrompt?: string;
     customChatGPTPrompt?: string;
@@ -17,12 +26,17 @@ interface BrainstormState {
     statusLog: string[];
     isPaused: boolean;
     humanFeedback: string | null;
+    awaitingHumanDecision: boolean;
+    lastSpeaker: "Gemini" | "ChatGPT" | null;
+    lastEscalation: EscalationPayload | null;
+    resumeContext: string | null;
 }
 
 const DEFAULT_STATE: BrainstormState = {
     active: false,
     sessionId: null,
     prompt: "",
+    mode: "PING_PONG",
     role: "CRITIC",
     rounds: 3,
     currentRound: 0,
@@ -30,7 +44,11 @@ const DEFAULT_STATE: BrainstormState = {
     chatGPTTabId: null,
     statusLog: [],
     isPaused: false,
-    humanFeedback: null
+    humanFeedback: null,
+    awaitingHumanDecision: false,
+    lastSpeaker: null,
+    lastEscalation: null,
+    resumeContext: null
 };
 
 let brainstormState: BrainstormState = { ...DEFAULT_STATE };
@@ -149,6 +167,14 @@ const ROLE_PROMPTS: Record<string, {
         geminiInit: (topic, cp) => `${cp}\n\nHere is the initial topic:\n---\n${topic}\n---`,
         geminiLoop: (feedback, cp) => `${cp}\n\nHere is the latest input from the collaborator:\n---\n${feedback}\n---`,
         chatGPTLoop: (proposal, cp) => `${cp}\n\nHere is the latest input from the collaborator:\n---\n${proposal}\n---`
+    },
+    DISCUSSION: {
+        geminiInit: (topic) => 
+            `[SYSTEM: DISCUSSION MODE] You are Agent A in an internal agent-to-agent working session. You are speaking directly to Agent B to start a discussion on the following topic:\n---\n${topic}\n---\n\nRULES:\n1. Address Agent B directly. DO NOT address the human user.\n2. DO NOT use phrases like "Dear User", "I recommend you", "As an AI", or "Mr. Sataa".\n3. TURN OBJECTIVE: Start the analysis. Provide your initial thesis, identify risks, or propose options for Agent B to critique.\n4. Do NOT close with offers, next-step suggestions for the user, or invitations. End with a challenge, a narrowing move, a conclusion, or an escalation.\n5. BOUNDARIES: If evidence boundaries (non-public data, industry practices, weak quantitative data) are reached, you MUST mark as inference, request verification, or emit an [ESCALATION_REQUIRED] block.`,
+        geminiLoop: (feedback) => 
+            `[SYSTEM: DISCUSSION MODE] You are Agent A in an internal agent-to-agent working session. Agent B just said:\n---\n${feedback}\n---\n\nRULES:\n1. Address Agent B directly. DO NOT address the human user.\n2. DO NOT use phrases like "Dear User", "I recommend you", "As an AI", or "Mr. Sataa".\n3. TURN OBJECTIVE: Critique their ideas, refine them, combine multiple options, reject them, escalate, or conclude the sub-issue. Speak ONLY as a collaborator/debater.\n4. Do NOT close with offers, next-step suggestions for the user, or invitations.\n5. CONVERGENCE & BOUNDARIES: If debating the same point or if evidence boundaries are reached, you MUST produce a compact structured conclusion (Established Facts, Unsupported Claims, Unresolved Items) or emit an [ESCALATION_REQUIRED] block.`,
+        chatGPTLoop: (proposal) => 
+            `[SYSTEM: DISCUSSION MODE] You are Agent B in an internal agent-to-agent working session. Agent A just said:\n---\n${proposal}\n---\n\nRULES:\n1. Address Agent A directly. DO NOT address the human user.\n2. DO NOT use phrases like "Dear User", "I recommend you", "As an AI", or "Mr. Sataa".\n3. TURN OBJECTIVE: Critique their ideas, refine them, combine multiple options, reject them, escalate, or conclude the sub-issue. Speak ONLY as a collaborator/debater.\n4. Do NOT close with offers, next-step suggestions for the user, or invitations.\n5. CONVERGENCE & BOUNDARIES: If debating the same point or if evidence boundaries are reached, you MUST produce a compact structured conclusion (Established Facts, Unsupported Claims, Unresolved Items) or emit an [ESCALATION_REQUIRED] block.`
     }
 };
 
@@ -185,7 +211,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         (async () => {
             if (isRestoring) await loadState();
 
-            const { topic, rounds, role, customGeminiPrompt, customChatGPTPrompt, geminiTabId, chatGPTTabId } = request;
+            const { topic, rounds, role, mode, customGeminiPrompt, customChatGPTPrompt, geminiTabId, chatGPTTabId } = request;
 
             if (!geminiTabId || !chatGPTTabId) {
                 sendResponse({ success: false, error: "Missing tab IDs." });
@@ -198,6 +224,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 active: true,
                 sessionId,
                 prompt: topic,
+                mode: mode || "PING_PONG",
                 role: role || "CRITIC",
                 customGeminiPrompt,
                 customChatGPTPrompt,
@@ -207,7 +234,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 chatGPTTabId,
                 statusLog: [],
                 isPaused: false,
-                humanFeedback: null
+                humanFeedback: null,
+                awaitingHumanDecision: false,
+                lastSpeaker: null,
+                lastEscalation: null,
+                resumeContext: null
             };
 
             log(`Starting run: ${rounds} rounds...`, 'system');
@@ -218,6 +249,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 await createSession({
                     id: sessionId,
                     topic: topic,
+                    mode: brainstormState.mode,
                     role: brainstormState.role,
                     timestamp: Date.now(),
                     transcript: [{ agent: 'User', text: topic }]
@@ -332,16 +364,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         brainstormState.isPaused = false;
 
         if (request.feedback) {
-            brainstormState.humanFeedback = request.feedback;
             log("Human Intervention: Feedback received. Resuming...", 'system');
-            // Log the actual feedback for the history record
             brainstormState.statusLog.push(`[System] Moderator: ${request.feedback}`);
 
             if (brainstormState.sessionId) {
                 updateSession(brainstormState.sessionId, { agent: 'System', text: `[Moderator Intervention]\n${request.feedback}` }).catch(() => { });
             }
+
+            if (brainstormState.awaitingHumanDecision) {
+                brainstormState.resumeContext = request.feedback;
+                brainstormState.awaitingHumanDecision = false;
+                brainstormState.lastEscalation = null;
+            } else {
+                // Standard manual pause feedback
+                brainstormState.humanFeedback = request.feedback;
+            }
         } else {
             log("Human Intervention: Run resumed without feedback.", 'system');
+            brainstormState.awaitingHumanDecision = false;
+            brainstormState.lastEscalation = null;
         }
 
         saveState();
@@ -353,6 +394,71 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // ---- Orchestration Engine ----
+
+function parseEscalationBlock(text: string): EscalationPayload | null {
+    const blockMatch = text.match(/\[ESCALATION_REQUIRED\]([\s\S]*?)\[\/ESCALATION_REQUIRED\]/i);
+    if (!blockMatch) return null;
+
+    const block = blockMatch[1];
+    const payload: EscalationPayload = {
+        reason: "",
+        decision_needed: "",
+        options: [],
+        recommended_option: "",
+        next_step_after_decision: ""
+    };
+
+    const extract = (key: string) => {
+        const match = block.match(new RegExp(`${key}:\\s*(.*?)(?=\\n[a-z_]+:|$)`, 'is'));
+        return match ? match[1].trim() : "";
+    };
+
+    payload.reason = extract('reason');
+    payload.decision_needed = extract('decision_needed');
+    payload.recommended_option = extract('recommended_option');
+    payload.next_step_after_decision = extract('next_step_after_decision');
+
+    const optionsMatch = block.match(/options:\s*((?:-\s+.*\n?)*)/i);
+    if (optionsMatch && optionsMatch[1]) {
+        payload.options = optionsMatch[1].split('\n')
+            .map(o => o.replace(/^-?\s*/, '').trim())
+            .filter(o => o.length > 0);
+    }
+
+    return payload.reason ? payload : null; // basic validation
+}
+
+function getDiscussionViolation(text: string): string | null {
+    const lower = text.toLowerCase();
+    
+    // English triggers
+    if (lower.includes("dear user") || 
+        lower.includes("mr. sata") || 
+        lower.includes("mr. sataa") || 
+        lower.includes("as an ai") || 
+        lower.includes("as a language model") || 
+        lower.includes("recommend you") ||
+        lower.includes("recommend to you") ||
+        lower.includes("your request") ||
+        lower.includes("would you like") ||
+        lower.includes("shall i prepare") ||
+        lower.includes("let me know if you need") ||
+        lower.includes("feel free to ask")) {
+        return "You used forbidden user-facing or AI-disclaimer language. You must speak ONLY to your agent collaborator.";
+    }
+
+    // Arabic triggers (handling audience drift)
+    if (lower.includes("أستاذ ساطع") || 
+        lower.includes("هل ترغب") || 
+        lower.includes("يمكنني أن") || 
+        lower.includes("أقترح عليك") || 
+        lower.includes("بصفتي ذكاء") ||
+        lower.includes("يسعدني أن")) {
+        return "You used forbidden user-facing or AI-disclaimer language. You must speak ONLY to your agent collaborator.";
+    }
+
+    return null;
+}
 
 async function runBrainstormLoop() {
     let currentInput = brainstormState.prompt;
@@ -382,8 +488,14 @@ async function runBrainstormLoop() {
             let basePrompt = currentInput;
 
             if (brainstormState.humanFeedback) {
+                // Standard manual pause injection
                 basePrompt = `Here is the latest input from your collaborator:\n---\n${currentInput}\n---\n\n[CRITICAL OVERRIDE] THE HUMAN MODERATOR HAS INTERVENED WITH THE FOLLOWING INSTRUCTIONS:\n---\n${brainstormState.humanFeedback}\n---\nAcknowledge the moderator's instructions and seamlessly incorporate them into your next response.`;
                 brainstormState.humanFeedback = null;
+                saveState();
+            } else if (brainstormState.resumeContext && brainstormState.mode === 'DISCUSSION') {
+                // Resolution for an explicit escalation
+                basePrompt = `[SYSTEM: ESCALATION RESOLVED] The human observer has provided the following decision/feedback regarding your previous escalation:\n---\n${brainstormState.resumeContext}\n---\n\nRULES:\n1. Address Agent B directly. DO NOT address the human user.\n2. Incorporate this decision to unblock the discussion.`;
+                brainstormState.resumeContext = null;
                 saveState();
             }
 
@@ -393,15 +505,39 @@ async function runBrainstormLoop() {
                 geminiPrompt = roleConfig.geminiLoop(basePrompt, brainstormState.customGeminiPrompt);
             }
 
-            const geminiOutput = await sendPromptToTab(brainstormState.geminiTabId!, geminiPrompt);
+            let geminiOutput = await sendPromptToTab(brainstormState.geminiTabId!, geminiPrompt);
             if (!brainstormState.active) break;
             if (!geminiOutput) {
                 log("Gemini produced no output. Aborting.", 'error');
                 break;
             }
 
+            if (brainstormState.mode === 'DISCUSSION') {
+                const violation = getDiscussionViolation(geminiOutput);
+                if (violation) {
+                    log(`[RULE VIOLATION] Gemini: ${violation}. Attempting repair...`, 'system');
+                    const repairPrompt = `[SYSTEM: RULE VIOLATION] ${violation}\n\nRULES REMINDER:\n1. Address Agent B directly.\n2. DO NOT address the human user or use AI disclaimers.\n\nPlease rewrite your previous response exactly to comply with these rules. Do not include apologies, just output the corrected response.`;
+                    const repairedOutput = await sendPromptToTab(brainstormState.geminiTabId!, repairPrompt);
+                    if (repairedOutput && brainstormState.active) {
+                        geminiOutput = repairedOutput;
+                    }
+                }
+            }
+
             if (brainstormState.sessionId) {
                 await updateSession(brainstormState.sessionId, { agent: 'Gemini', text: geminiOutput }).catch(() => { });
+            }
+
+            if (brainstormState.mode === 'DISCUSSION') {
+                const escalation = parseEscalationBlock(geminiOutput);
+                if (escalation) {
+                    brainstormState.lastEscalation = escalation;
+                    brainstormState.isPaused = true;
+                    brainstormState.awaitingHumanDecision = true;
+                    log(`[ESCALATION DETECTED] Gemini requests human input. Reason: ${escalation.reason}`, 'system');
+                    saveState();
+                    continue; // Skip the wait and immediately prompt the UI that we are paused
+                }
             }
 
             await wait(2000);
@@ -420,15 +556,32 @@ async function runBrainstormLoop() {
                 chatBasePrompt = `Here is the latest input from your collaborator:\n---\n${geminiOutput}\n---\n\n[CRITICAL OVERRIDE] THE HUMAN MODERATOR HAS INTERVENED WITH THE FOLLOWING INSTRUCTIONS:\n---\n${brainstormState.humanFeedback}\n---\nAcknowledge the moderator's instructions and seamlessly incorporate them into your next response.`;
                 brainstormState.humanFeedback = null; // Clear it so it doesn't leak into Gemini's next turn
                 saveState();
+            } else if (brainstormState.resumeContext && brainstormState.mode === 'DISCUSSION') {
+                // Resolution for an explicit escalation
+                chatBasePrompt = `[SYSTEM: ESCALATION RESOLVED] The human observer has provided the following decision/feedback regarding your previous escalation:\n---\n${brainstormState.resumeContext}\n---\n\nRULES:\n1. Address Agent A directly. DO NOT address the human user.\n2. Incorporate this decision to unblock the discussion.`;
+                brainstormState.resumeContext = null;
+                saveState();
             }
 
             const chatGPTPrompt = roleConfig.chatGPTLoop(chatBasePrompt, brainstormState.customChatGPTPrompt);
 
-            const chatGPTOutput = await sendPromptToTab(brainstormState.chatGPTTabId!, chatGPTPrompt);
+            let chatGPTOutput = await sendPromptToTab(brainstormState.chatGPTTabId!, chatGPTPrompt);
             if (!brainstormState.active) break;
             if (!chatGPTOutput) {
                 log("ChatGPT produced no output. Aborting.", 'error');
                 break;
+            }
+
+            if (brainstormState.mode === 'DISCUSSION') {
+                const violation = getDiscussionViolation(chatGPTOutput);
+                if (violation) {
+                    log(`[RULE VIOLATION] ChatGPT: ${violation}. Attempting repair...`, 'system');
+                    const repairPrompt = `[SYSTEM: RULE VIOLATION] ${violation}\n\nRULES REMINDER:\n1. Address Agent A directly.\n2. DO NOT address the human user or use AI disclaimers.\n\nPlease rewrite your previous response exactly to comply with these rules. Do not include apologies, just output the corrected response.`;
+                    const repairedOutput = await sendPromptToTab(brainstormState.chatGPTTabId!, repairPrompt);
+                    if (repairedOutput && brainstormState.active) {
+                        chatGPTOutput = repairedOutput;
+                    }
+                }
             }
 
             currentInput = chatGPTOutput;
@@ -438,6 +591,18 @@ async function runBrainstormLoop() {
 
             if (brainstormState.sessionId) {
                 await updateSession(brainstormState.sessionId, { agent: 'ChatGPT', text: chatGPTOutput }).catch(() => { });
+            }
+
+            if (brainstormState.mode === 'DISCUSSION') {
+                const escalation = parseEscalationBlock(chatGPTOutput);
+                if (escalation) {
+                    brainstormState.lastEscalation = escalation;
+                    brainstormState.isPaused = true;
+                    brainstormState.awaitingHumanDecision = true;
+                    log(`[ESCALATION DETECTED] ChatGPT requests human input. Reason: ${escalation.reason}`, 'system');
+                    saveState();
+                    continue; // Immediately loop back around to wait at the top if paused
+                }
             }
 
             await wait(2000);

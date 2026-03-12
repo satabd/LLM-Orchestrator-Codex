@@ -6,9 +6,11 @@ export interface TranscriptEntry {
 export interface BrainstormSession {
     id: string;
     topic: string;
+    mode: string;
     role: string;
     timestamp: number;
     transcript: TranscriptEntry[];
+    escalations?: any[];
 }
 
 const DB_NAME = 'LLMOrchestratorDB';

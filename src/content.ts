@@ -1,5 +1,6 @@
 // AI Executor Content Script
 // Handles DOM interactions for Gemini and ChatGPT
+import TurndownService from 'turndown';
 
 // --- Platform Detection ---
 const isGemini = (): boolean => window.location.hostname.includes('gemini.google.com');
@@ -216,8 +217,19 @@ function mainScrape(): string {
 }
 
 function htmlToMarkdown(root: HTMLElement): string {
-    let text = root.innerText || root.textContent || "";
-    // Basic cleanup
+    const clone = root.cloneNode(true) as HTMLElement;
+    
+    // Remove common action buttons
+    const buttons = clone.querySelectorAll('button, .action-buttons, .copy-button');
+    buttons.forEach(b => b.remove());
+    
+    const turndownService = new TurndownService({
+        headingStyle: 'atx',
+        codeBlockStyle: 'fenced'
+    });
+    
+    let text = turndownService.turndown(clone);
+    // Basic cleanup just in case
     text = text.replace(/Show drafts/g, '').replace(/Regenerate/g, '');
     return text.trim();
 }
