@@ -1,23 +1,45 @@
+import { applyTranslationsToDOM, getLanguage, setLanguage, t, Language } from './i18n';
 
-document.getElementById('openPanelBtn')?.addEventListener('click', async () => {
-  // Chrome 116+ supports opening side panel via API from user action
-  // But usually this requires the "activeTab".
-  // We can also just instruct the user.
-  // Ideally we assume the user can click the toolbar if configured to open side panel, 
-  // but we left "default_popup" in manifest, so the icon opens this popup.
+let currentLang: Language = 'en';
 
-  // Trigger side panel open
-  // Note: chrome.sidePanel.open requires a user gesture and windowId.
-  try {
-    const window = await chrome.windows.getCurrent();
-    if (window.id) {
-      await chrome.sidePanel.open({ windowId: window.id });
-      window.close(); // Close the popup
-    }
-  } catch (e) {
-    console.error("Context error", e);
-    // Fallback: Inform user
-    const btn = document.getElementById('openPanelBtn');
-    if (btn) btn.textContent = "Right-click Icon > Open Side Panel";
+document.addEventListener('DOMContentLoaded', async () => {
+  currentLang = await getLanguage();
+  applyTranslationsToDOM(currentLang);
+
+  const langBtn = document.getElementById('langToggleBtn');
+  if (langBtn) {
+    langBtn.textContent = currentLang === 'en' ? 'عربي' : 'English';
+    langBtn.addEventListener('click', async () => {
+      currentLang = currentLang === 'en' ? 'ar' : 'en';
+      await setLanguage(currentLang);
+      applyTranslationsToDOM(currentLang);
+      langBtn.textContent = currentLang === 'en' ? 'عربي' : 'English';
+      updateDynamicTexts();
+    });
   }
+
+  document.getElementById('openPanelBtn')?.addEventListener('click', async () => {
+    try {
+      const window = await chrome.windows.getCurrent();
+      if (window.id) {
+        // @ts-ignore - sidePanel API might not be fully typed in older @types/chrome
+        await chrome.sidePanel.open({ windowId: window.id });
+        globalThis.window.close(); // Close the popup
+      }
+    } catch (e) {
+      console.error("Context error", e);
+      // Fallback: Inform user
+      const btn = document.getElementById('openPanelBtn');
+      if (btn) btn.textContent = t('openSidePanelFallback', currentLang);
+    }
+  });
 });
+
+function updateDynamicTexts() {
+  const btn = document.getElementById('openPanelBtn');
+  // If it was showing the fallback, update it to the translated fallback
+  // Otherwise applyTranslationsToDOM handles the default state
+  if (btn && btn.textContent !== t('openSidePanel', currentLang) && btn.hasAttribute('data-fallback')) {
+    btn.textContent = t('openSidePanelFallback', currentLang);
+  }
+}

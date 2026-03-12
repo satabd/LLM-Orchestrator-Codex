@@ -6,135 +6,169 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLM Orchestrator Panel</title>
     <link rel="stylesheet" href="panel.css">
+    <style>
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        [dir="rtl"] .header-controls {
+            margin-right: auto;
+            margin-left: 0;
+        }
+        
+        [dir="ltr"] .header-controls {
+            margin-left: auto;
+            margin-right: 0;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        [dir="rtl"] .actions, [dir="rtl"] .mini-actions {
+            flex-direction: row; /* Ensure buttons still flow correctly */
+        }
+        
+        [dir="rtl"] .form-group.half {
+            float: right;
+        }
+    </style>
 </head>
 
 <body>
     <div class="panel-container">
         <header>
-            <h1>LLM Orchestrator</h1>
-            <div id="status-badge" class="badge idle">Idle</div>
+            <h1 data-i18n="appTitle">LLM Orchestrator</h1>
+            <div class="header-controls">
+                <div id="status-badge" class="badge idle" data-i18n="idle">Idle</div>
+                <button id="langToggleBtn" class="btn link">عربي</button>
+            </div>
         </header>
 
         <div class="tabs-header">
-            <button id="tabActiveBtn" class="tab-btn active">Active Run</button>
-            <button id="tabHistoryBtn" class="tab-btn">History</button>
+            <button id="tabActiveBtn" class="tab-btn active" data-i18n="activeRun">Active Run</button>
+            <button id="tabHistoryBtn" class="tab-btn" data-i18n="history">History</button>
         </div>
 
         <div id="tabActiveContent" class="tab-content active">
 
             <div class="card">
-                <h2>Configuration</h2>
+                <h2 data-i18n="configuration">Configuration</h2>
 
                 <div class="form-group">
-                    <label for="geminiTabSelect">Gemini Tab</label>
+                    <label for="geminiTabSelect" data-i18n="geminiTab">Gemini Tab</label>
                     <select id="geminiTabSelect">
-                        <option value="">Detecting...</option>
+                        <option value="" data-i18n="detecting">Detecting...</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label for="chatGPTTabSelect">ChatGPT Tab</label>
+                    <label for="chatGPTTabSelect" data-i18n="chatGPTTab">ChatGPT Tab</label>
                     <select id="chatGPTTabSelect">
-                        <option value="">Detecting...</option>
+                        <option value="" data-i18n="detecting">Detecting...</option>
                     </select>
                 </div>
 
                 <div class="row">
                     <div class="form-group half">
-                        <label for="roundsInput">Rounds</label>
+                        <label for="roundsInput" data-i18n="rounds">Rounds</label>
                         <input type="number" id="roundsInput" value="3" min="1" max="20">
                     </div>
                     <div class="form-group half">
-                        <label for="modeSelect">Mode</label>
+                        <label for="modeSelect" data-i18n="mode">Mode</label>
                         <select id="modeSelect">
-                            <option value="PING_PONG">Ping Pong</option>
-                            <option value="GEMINI_ONLY">Gemini Only</option>
-                            <option value="ChatGPT_ONLY">ChatGPT Only</option>
+                            <option value="PING_PONG" data-i18n="pingPong">Ping Pong</option>
+                            <option value="GEMINI_ONLY" data-i18n="geminiOnly">Gemini Only</option>
+                            <option value="ChatGPT_ONLY" data-i18n="chatGptOnly">ChatGPT Only</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="roleSelect">Brainstorming Role</label>
+                    <label for="roleSelect" data-i18n="role">Brainstorming Role</label>
                     <select id="roleSelect">
-                        <option value="CRITIC">Critic (Refiner vs Critic)</option>
-                        <option value="EXPANDER">Expander (Yes, And...)</option>
-                        <option value="ARCHITECT">Architect (Visionary vs Architect)</option>
-                        <option value="DEV_ADVOCATE">Devil's Advocate (Proposer vs Destroyer)</option>
-                        <option value="FIRST_PRINCIPLES">First Principles (Deconstructor vs Synthesizer)</option>
-                        <option value="INTERVIEWER">Interviewer (Journalist vs Domain Expert)</option>
-                        <option value="FIVE_WHYS">Five Whys (Root Cause Analysis)</option>
-                        <option value="HISTORIAN_FUTURIST">Time Jump (Historian vs Futurist)</option>
-                        <option value="ELI5">Explain Like I'm 5 (Academic vs ELI5)</option>
-                        <option value="CUSTOM">Custom System Prompts...</option>
+                        <option value="CRITIC" data-i18n="roleCritic">Critic (Refiner vs Critic)</option>
+                        <option value="EXPANDER" data-i18n="roleExpander">Expander (Yes, And...)</option>
+                        <option value="ARCHITECT" data-i18n="roleArchitect">Architect (Visionary vs Architect)</option>
+                        <option value="DEV_ADVOCATE" data-i18n="roleDevilAdvocate">Devil's Advocate (Proposer vs Destroyer)</option>
+                        <option value="FIRST_PRINCIPLES" data-i18n="roleFirstPrinciples">First Principles (Deconstructor vs Synthesizer)</option>
+                        <option value="INTERVIEWER" data-i18n="roleInterviewer">Interviewer (Journalist vs Domain Expert)</option>
+                        <option value="FIVE_WHYS" data-i18n="roleFiveWhys">Five Whys (Root Cause Analysis)</option>
+                        <option value="HISTORIAN_FUTURIST" data-i18n="roleTimeJump">Time Jump (Historian vs Futurist)</option>
+                        <option value="ELI5" data-i18n="roleEli5">Explain Like I'm 5 (Academic vs ELI5)</option>
+                        <option value="CUSTOM" data-i18n="roleCustom">Custom System Prompts...</option>
                     </select>
                 </div>
 
                 <div id="customRoleInputs" class="form-group" style="display: none;">
-                    <label for="geminiPromptInput">Gemini System Prompt</label>
-                    <textarea id="geminiPromptInput" rows="2" placeholder="Instructions for Gemini..."></textarea>
-                    <label for="chatGPTPromptInput" style="margin-top: 8px;">ChatGPT System Prompt</label>
-                    <textarea id="chatGPTPromptInput" rows="2" placeholder="Instructions for ChatGPT..."></textarea>
+                    <label for="geminiPromptInput" data-i18n="geminiPrompt">Gemini System Prompt</label>
+                    <textarea id="geminiPromptInput" rows="2" data-i18n-placeholder="geminiPromptPlaceholder" placeholder="Instructions for Gemini..."></textarea>
+                    <label for="chatGPTPromptInput" style="margin-top: 8px;" data-i18n="chatGptPrompt">ChatGPT System Prompt</label>
+                    <textarea id="chatGPTPromptInput" rows="2" data-i18n-placeholder="chatGptPromptPlaceholder" placeholder="Instructions for ChatGPT..."></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label for="topicInput">Seed Prompt / Topic</label>
-                    <textarea id="topicInput" rows="3" placeholder="Enter topic or question..."></textarea>
+                    <label for="topicInput" data-i18n="seedPromptTopic">Seed Prompt / Topic</label>
+                    <textarea id="topicInput" rows="3" data-i18n-placeholder="topicPlaceholder" placeholder="Enter topic or question..."></textarea>
                 </div>
 
                 <div class="actions">
-                    <button id="startBtn" class="btn primary">Start Run</button>
-                    <button id="pauseBtn" class="btn secondary" style="display: none;">Pause</button>
-                    <button id="stopBtn" class="btn danger" style="display: none;">Stop</button>
+                    <button id="startBtn" class="btn primary" data-i18n="startRun">Start Run</button>
+                    <button id="pauseBtn" class="btn secondary" style="display: none;" data-i18n="pause">Pause</button>
+                    <button id="stopBtn" class="btn danger" style="display: none;" data-i18n="stop">Stop</button>
                 </div>
             </div>
 
             <!-- Human Feedback Section -->
             <div id="humanModeratorCard" class="card" style="display: none; border-color: var(--primary-color);">
-                <h2 style="color: var(--primary-color);">Human Moderator</h2>
+                <h2 style="color: var(--primary-color);" data-i18n="humanModerator">Human Moderator</h2>
                 <div class="form-group">
-                    <label for="humanFeedbackInput">Inject Feedback (Course-Correct)</label>
-                    <textarea id="humanFeedbackInput" rows="3"
+                    <label for="humanFeedbackInput" data-i18n="injectFeedback">Inject Feedback (Course-Correct)</label>
+                    <textarea id="humanFeedbackInput" rows="3" data-i18n-placeholder="feedbackPlaceholder"
                         placeholder="Type instructions here. The engine will read them and forward them to the next AI in the loop..."></textarea>
                 </div>
                 <div class="actions" style="margin-top: 5px;">
-                    <button id="resumeWithFeedbackBtn" class="btn primary">Resume with Feedback</button>
-                    <button id="resumeSilentBtn" class="btn secondary">Resume Silently</button>
+                    <button id="resumeWithFeedbackBtn" class="btn primary" data-i18n="resumeWithFeedback">Resume with Feedback</button>
+                    <button id="resumeSilentBtn" class="btn secondary" data-i18n="resumeSilently">Resume Silently</button>
                 </div>
             </div>
 
             <div class="card flex-grow">
                 <div class="header-row">
-                    <h2>Logs</h2>
+                    <h2 data-i18n="logs">Logs</h2>
                     <div class="mini-actions">
-                        <button id="clearLogsBtn" class="btn link">Clear</button>
+                        <button id="clearLogsBtn" class="btn link" data-i18n="clear">Clear</button>
                     </div>
                 </div>
                 <div id="logsArea" class="logs-container">
-                    <div class="log-entry system">Ready to start.</div>
+                    <div class="log-entry system" data-i18n="readyToStart">Ready to start.</div>
                 </div>
             </div>
 
             <div id="postRunActionsCard" class="card" style="display: none;">
-                <h2>Post-Run Actions</h2>
+                <h2 data-i18n="postRunActions">Post-Run Actions</h2>
                 <div class="row">
                     <div class="form-group half">
-                        <label for="continueRoundsInput">Additional Rounds</label>
+                        <label for="continueRoundsInput" data-i18n="additionalRounds">Additional Rounds</label>
                         <input type="number" id="continueRoundsInput" value="2" min="1" max="10">
                     </div>
                 </div>
                 <div class="actions" style="margin-top: 10px;">
-                    <button id="continueBtn" class="btn primary">Continue</button>
-                    <button id="concludeBtn" class="btn secondary">Final Conclusion</button>
+                    <button id="continueBtn" class="btn primary" data-i18n="continue">Continue</button>
+                    <button id="concludeBtn" class="btn secondary" data-i18n="finalConclusion">Final Conclusion</button>
                 </div>
                 <div id="postRunStatus" class="status-text"></div>
             </div>
 
             <div class="card">
-                <h2>Export</h2>
+                <h2 data-i18n="export">Export</h2>
                 <div class="actions">
-                    <button id="exportLastBtn" class="btn secondary">Last Response</button>
-                    <button id="exportFullBtn" class="btn secondary">Full Transcript</button>
+                    <button id="exportLastBtn" class="btn secondary" data-i18n="lastResponse">Last Response</button>
+                    <button id="exportFullBtn" class="btn secondary" data-i18n="fullTranscript">Full Transcript</button>
                 </div>
                 <div id="exportStatus" class="status-text"></div>
             </div>
@@ -144,23 +178,23 @@
         <div id="tabHistoryContent" class="tab-content">
             <div class="card flex-grow">
                 <div class="header-row">
-                    <h2>Past Sessions</h2>
+                    <h2 data-i18n="pastSessions">Past Sessions</h2>
                     <div class="mini-actions">
-                        <button id="refreshHistoryBtn" class="btn link">Refresh</button>
+                        <button id="refreshHistoryBtn" class="btn link" data-i18n="refresh">Refresh</button>
                     </div>
                 </div>
                 <div id="historyList" class="history-list">
                     <!-- History items injected here -->
-                    <div class="status-text">Loading history...</div>
+                    <div class="status-text" data-i18n="loadingHistory">Loading history...</div>
                 </div>
             </div>
 
             <!-- History Detail View (Hidden initially) -->
             <div id="historyDetailView" class="card" style="display: none; margin-top: 10px;">
                 <div class="header-row">
-                    <h2 id="historyDetailTitle">Session Details</h2>
+                    <h2 id="historyDetailTitle" data-i18n="sessionDetails">Session Details</h2>
                     <div class="mini-actions">
-                        <button id="closeHistoryDetailBtn" class="btn link">Close</button>
+                        <button id="closeHistoryDetailBtn" class="btn link" data-i18n="close">Close</button>
                     </div>
                 </div>
                 <div id="historyDetailContent" class="logs-container" style="height: 250px;">

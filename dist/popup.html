@@ -10,6 +10,36 @@
       text-align: center;
     }
 
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    [dir="rtl"] .header-row {
+      flex-direction: row-reverse;
+    }
+
+    .header-row h3 {
+      margin: 0;
+    }
+
+    .lang-btn {
+      background: none;
+      color: #2196f3;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      font-size: 14px;
+      width: auto;
+    }
+
+    .lang-btn:hover {
+      background: none;
+      text-decoration: underline;
+    }
+
     button {
       padding: 10px;
       width: 100%;
@@ -30,13 +60,16 @@
     }
   </style>
   <script type="module" crossorigin src="/popup.js"></script>
-  <link rel="modulepreload" crossorigin href="/modulepreload-polyfill.js">
+  <link rel="modulepreload" crossorigin href="/i18n.js">
 </head>
 
 <body>
-  <h3>LLM Orchestrator</h3>
-  <p>Control the orchestration from the Side Panel.</p>
-  <button id="openPanelBtn">Open Side Panel</button>
+  <div class="header-row">
+    <h3 data-i18n="appTitle">LLM Orchestrator</h3>
+    <button id="langToggleBtn" class="lang-btn">عربي</button>
+  </div>
+  <p data-i18n="controlFromPanel">Control the orchestration from the Side Panel.</p>
+  <button id="openPanelBtn" data-i18n="openSidePanel">Open Side Panel</button>
 </body>
 
 </html>

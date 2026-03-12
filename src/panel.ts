@@ -1,3 +1,6 @@
+import { applyTranslationsToDOM, getLanguage, setLanguage, t, Language } from './i18n';
+
+let currentLang: Language = 'en';
 
 // Interface matching background state
 interface BrainstormState {
@@ -112,7 +115,30 @@ function attemptAutoSpawn() {
 
 // --- Initialization ---
 
-document.addEventListener('DOMContentLoaded', () => {
+function updateDynamicTexts() {
+    pollStatus();
+    refreshTabs();
+    if (document.getElementById('tabHistoryBtn')?.classList.contains('active')) {
+        loadHistory();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    currentLang = await getLanguage();
+    applyTranslationsToDOM(currentLang);
+
+    const langBtn = document.getElementById('langToggleBtn');
+    if (langBtn) {
+        langBtn.textContent = currentLang === 'en' ? 'عربي' : 'English';
+        langBtn.addEventListener('click', async () => {
+            currentLang = currentLang === 'en' ? 'ar' : 'en';
+            await setLanguage(currentLang);
+            applyTranslationsToDOM(currentLang);
+            langBtn.textContent = currentLang === 'en' ? 'عربي' : 'English';
+            updateDynamicTexts();
+        });
+    }
+
     attemptAutoSpawn();
 
     refreshTabs();
@@ -170,7 +196,7 @@ function populateSelect(select: HTMLSelectElement, tabs: chrome.tabs.Tab[]) {
 
     if (tabs.length === 0) {
         const opt = document.createElement('option');
-        opt.textContent = "No tabs found";
+        opt.textContent = t('noTabsFound', currentLang);
         opt.value = "";
         select.appendChild(opt);
         return;
@@ -200,10 +226,10 @@ function pollStatus() {
 
 function updateUI(state: BrainstormState) {
     // Status Badge
-    let statusText = state.active ? "Running" : "Idle";
+    let statusText = state.active ? t('running', currentLang) : t('idle', currentLang);
     let statusClass = state.active ? "running" : "idle";
     if (state.active && (state as any).isPaused) {
-        statusText = "Paused";
+        statusText = t('paused', currentLang);
         statusClass = "idle"; // Give it a different tone, maybe warning color if we had one
     }
 
@@ -307,11 +333,11 @@ function startRun() {
     }
 
     if (!geminiId || !chatGPTId) {
-        logLocal("Error: Please select both Gemini and ChatGPT tabs.");
+        logLocal(t('errorTabsMissing', currentLang));
         return;
     }
     if (!topic) {
-        logLocal("Error: Topic is empty.");
+        logLocal(t('errorTopicEmpty', currentLang));
         return;
     }
 
@@ -328,7 +354,7 @@ function startRun() {
         if (!response || !response.success) {
             logLocal("Error starting: " + (response?.error || "Unknown"));
         } else {
-            logLocal("System: Start command sent.");
+            logLocal(t('systemStartCommand', currentLang));
         }
     });
 }
@@ -342,7 +368,7 @@ function pauseRun() {
 function resumeRun(withFeedback: boolean) {
     const feedback = withFeedback ? ELEMENTS.humanFeedbackInput.value.trim() : "";
     if (withFeedback && !feedback) {
-        alert("Please enter feedback before resuming.");
+        alert(t('enterFeedback', currentLang));
         return;
     }
 
@@ -360,14 +386,14 @@ function stopRun() {
 
 function continueRun() {
     const additionalRounds = parseInt(ELEMENTS.continueRoundsInput.value) || 2;
-    ELEMENTS.postRunStatus.textContent = "Continuing...";
+    ELEMENTS.postRunStatus.textContent = t('continuing', currentLang);
     chrome.runtime.sendMessage({
         action: "continueBrainstorm",
         additionalRounds
     }, (response) => {
         if (!response || !response.success) {
             logLocal("Error continuing: " + (response?.error || "Unknown"));
-            ELEMENTS.postRunStatus.textContent = "Failed to continue.";
+            ELEMENTS.postRunStatus.textContent = t('failedToContinue', currentLang);
         } else {
             ELEMENTS.postRunStatus.textContent = "";
         }
@@ -375,15 +401,15 @@ function continueRun() {
 }
 
 function generateConclusion() {
-    ELEMENTS.postRunStatus.textContent = "Generating Conclusion...";
+    ELEMENTS.postRunStatus.textContent = t('generatingConclusion', currentLang);
     chrome.runtime.sendMessage({
         action: "generateConclusion"
     }, (response) => {
         if (!response || !response.success) {
             logLocal("Error generating conclusion: " + (response?.error || "Unknown"));
-            ELEMENTS.postRunStatus.textContent = "Failed to generate.";
+            ELEMENTS.postRunStatus.textContent = t('failedToGenerate', currentLang);
         } else {
-            ELEMENTS.postRunStatus.textContent = "Conclusion generated.";
+            ELEMENTS.postRunStatus.textContent = t('conclusionGenerated', currentLang);
         }
     });
 }
@@ -409,7 +435,7 @@ function logLocal(msg: string) {
 // --- Export ---
 
 async function handleExport(type: 'last' | 'full') {
-    ELEMENTS.exportStatus.textContent = "Exporting...";
+    ELEMENTS.exportStatus.textContent = t('exporting', currentLang);
 
     // Determine which tab is 'active' for export context?
     // Actually, user might want to export from specific tab.
@@ -438,7 +464,7 @@ async function handleExport(type: 'last' | 'full') {
     // Or just pick ChatGPT if available, else Gemini.
     const targetTabId = cId || gId;
     if (!targetTabId) {
-        ELEMENTS.exportStatus.textContent = "No tab selected.";
+        ELEMENTS.exportStatus.textContent = t('noTabSelected', currentLang);
         return;
     }
 
@@ -457,22 +483,22 @@ async function handleExport(type: 'last' | 'full') {
 
         chrome.tabs.sendMessage(targetTabId, { action }, (response) => {
             if (chrome.runtime.lastError || !response) {
-                ELEMENTS.exportStatus.textContent = "Error communicating with tab.";
+                ELEMENTS.exportStatus.textContent = t('errorCommunicating', currentLang);
                 return;
             }
 
             const text = response.text;
             if (!text) {
-                ELEMENTS.exportStatus.textContent = "No content found.";
+                ELEMENTS.exportStatus.textContent = t('noContentFound', currentLang);
                 return;
             }
 
             downloadFile(text, `export-${type}-${Date.now()}.md`);
-            ELEMENTS.exportStatus.textContent = "Export done.";
+            ELEMENTS.exportStatus.textContent = t('exportDone', currentLang);
         });
 
     } catch (e) {
-        ELEMENTS.exportStatus.textContent = "Export failed.";
+        ELEMENTS.exportStatus.textContent = t('exportFailed', currentLang);
     }
 }
 
@@ -504,11 +530,11 @@ function switchTab(tab: 'active' | 'history') {
 }
 
 function loadHistory() {
-    ELEMENTS.historyList.innerHTML = '<div class="status-text">Loading...</div>';
+    ELEMENTS.historyList.innerHTML = `<div class="status-text">${t('loading', currentLang)}</div>`;
 
     chrome.runtime.sendMessage({ action: "getAllSessions" }, (sessions) => {
         if (!sessions || sessions.length === 0) {
-            ELEMENTS.historyList.innerHTML = '<div class="status-text">No history found.</div>';
+            ELEMENTS.historyList.innerHTML = `<div class="status-text">${t('noHistoryFound', currentLang)}</div>`;
             return;
         }
 
@@ -523,7 +549,12 @@ function loadHistory() {
 
             const header = document.createElement('div');
             header.className = 'history-item-header';
-            header.innerHTML = `<span>Role: ${s.role}</span><span>${date}</span>`;
+
+            // Try to map role constant to translation key
+            const roleKey = `role${s.role.charAt(0).toUpperCase() + s.role.slice(1).toLowerCase().replace(/_([a-z])/g, (g: string) => g[1].toUpperCase())}`;
+            const displayRole = t(roleKey as any, currentLang) !== roleKey ? t(roleKey as any, currentLang) : s.role;
+
+            header.innerHTML = `<span>${t('role', currentLang)}: ${displayRole}</span><span>${date}</span>`;
 
             const topic = document.createElement('div');
             topic.className = 'history-item-topic';
@@ -535,17 +566,17 @@ function loadHistory() {
 
             const viewBtn = document.createElement('button');
             viewBtn.className = 'btn secondary';
-            viewBtn.textContent = 'View';
+            viewBtn.textContent = t('view', currentLang);
             viewBtn.onclick = () => viewHistorySession(s.id);
 
             const exportBtn = document.createElement('button');
             exportBtn.className = 'btn primary';
-            exportBtn.textContent = 'Export';
+            exportBtn.textContent = t('export', currentLang);
             exportBtn.onclick = () => exportHistorySession(s.id);
 
             const delBtn = document.createElement('button');
             delBtn.className = 'btn danger';
-            delBtn.textContent = 'Del';
+            delBtn.textContent = t('del', currentLang);
             delBtn.onclick = () => deleteHistorySession(s.id);
 
             actions.appendChild(viewBtn);
@@ -565,7 +596,7 @@ function viewHistorySession(id: string) {
     const session = currentHistorySessions.find(s => s.id === id);
     if (!session) return;
 
-    ELEMENTS.historyDetailTitle.textContent = "Transcript";
+    ELEMENTS.historyDetailTitle.textContent = "Transcript"; // keeping it simple
     ELEMENTS.historyDetailContent.innerHTML = ''; // clear
 
     session.transcript.forEach((entry: any) => {
@@ -592,7 +623,7 @@ function exportHistorySession(id: string) {
 }
 
 function deleteHistorySession(id: string) {
-    if (!confirm("Delete this session record?")) return;
+    if (!confirm(t('deleteConfirm', currentLang))) return;
     chrome.runtime.sendMessage({ action: "deleteSession", id }, (res) => {
         if (res && res.success) {
             loadHistory();
