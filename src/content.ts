@@ -146,6 +146,12 @@ async function waitForIdle(): Promise<void> {
                 totalChecks++;
                 const currentText = getLastResponseText();
 
+                // Auto-scroll to bottom to let the chats stream and be generated properly
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                document.querySelectorAll('main, .overflow-y-auto').forEach(el => {
+                    el.scrollTop = el.scrollHeight;
+                });
+
                 // If text hasn't changed
                 if (currentText === lastText) {
                     stableCount++;
