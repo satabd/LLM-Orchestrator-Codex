@@ -1,36 +1,8 @@
 // Brainstorm Orchestrator (Role-Based)
 // Runs in MV3 Service Worker context.
 
-import { createSession, updateSession, getAllSessions, deleteSession, BrainstormSession } from './db.js';
-
-interface EscalationPayload {
-    reason: string;
-    decision_needed: string;
-    options: string[];
-    recommended_option: string;
-    next_step_after_decision: string;
-}
-
-interface BrainstormState {
-    active: boolean;
-    sessionId: string | null;
-    prompt: string;
-    mode: "PING_PONG" | "GEMINI_ONLY" | "ChatGPT_ONLY" | "DISCUSSION";
-    role: string;
-    customGeminiPrompt?: string;
-    customChatGPTPrompt?: string;
-    rounds: number;
-    currentRound: number;
-    geminiTabId: number | null;
-    chatGPTTabId: number | null;
-    statusLog: string[];
-    isPaused: boolean;
-    humanFeedback: string | null;
-    awaitingHumanDecision: boolean;
-    lastSpeaker: "Gemini" | "ChatGPT" | null;
-    lastEscalation: EscalationPayload | null;
-    resumeContext: string | null;
-}
+import { createSession, updateSession, getAllSessions, deleteSession, appendEscalation } from './db.js';
+import { BrainstormSession, BrainstormState, EscalationPayload } from './types.js';
 
 const DEFAULT_STATE: BrainstormState = {
     active: false,
@@ -48,7 +20,8 @@ const DEFAULT_STATE: BrainstormState = {
     awaitingHumanDecision: false,
     lastSpeaker: null,
     lastEscalation: null,
-    resumeContext: null
+    resumeContext: null,
+    discussionTurnSinceCheckpoint: 0
 };
 
 let brainstormState: BrainstormState = { ...DEFAULT_STATE };
@@ -238,7 +211,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 awaitingHumanDecision: false,
                 lastSpeaker: null,
                 lastEscalation: null,
-                resumeContext: null
+                resumeContext: null,
+                discussionTurnSinceCheckpoint: 0
             };
 
             log(`Starting run: ${rounds} rounds...`, 'system');
@@ -442,8 +416,17 @@ function getDiscussionViolation(text: string): string | null {
         lower.includes("your request") ||
         lower.includes("would you like") ||
         lower.includes("shall i prepare") ||
+        lower.includes("shall i") ||
         lower.includes("let me know if you need") ||
-        lower.includes("feel free to ask")) {
+        lower.includes("feel free to ask") ||
+        lower.includes("i can help you") ||
+        lower.includes("let me know") ||
+        lower.includes("for you") ||
+        lower.includes("here's a summary for you") ||
+        lower.includes("here is a summary") ||
+        lower.includes("i recommend") ||
+        lower.includes("would you like a roadmap") ||
+        lower.includes("i can now create")) {
         return "You used forbidden user-facing or AI-disclaimer language. You must speak ONLY to your agent collaborator.";
     }
 
@@ -453,7 +436,12 @@ function getDiscussionViolation(text: string): string | null {
         lower.includes("يمكنني أن") || 
         lower.includes("أقترح عليك") || 
         lower.includes("بصفتي ذكاء") ||
-        lower.includes("يسعدني أن")) {
+        lower.includes("يسعدني أن") ||
+        lower.includes("دعني أعرف") ||
+        lower.includes("لأجلك") ||
+        lower.includes("هل يمكنني") ||
+        lower.includes("إليك ملخص") ||
+        lower.includes("أوصي بأن")) {
         return "You used forbidden user-facing or AI-disclaimer language. You must speak ONLY to your agent collaborator.";
     }
 
@@ -505,6 +493,13 @@ async function runBrainstormLoop() {
                 geminiPrompt = roleConfig.geminiLoop(basePrompt, brainstormState.customGeminiPrompt);
             }
 
+            if (brainstormState.mode === 'DISCUSSION' && brainstormState.discussionTurnSinceCheckpoint >= 4) {
+                geminiPrompt += `\n\n[DISCUSSION CONTROL]\nDo not expand the topic further.\nYour next response must do exactly one of the following:\n- conclude the current sub-issue,\n- mark a claim unsupported,\n- mark a claim as inference only,\n- escalate for human input.`;
+                brainstormState.discussionTurnSinceCheckpoint = 0;
+                log(`Convergence checkpoint reached. Forced sub-issue conclusion requested for Gemini.`, 'system');
+                saveState();
+            }
+
             let geminiOutput = await sendPromptToTab(brainstormState.geminiTabId!, geminiPrompt);
             if (!brainstormState.active) break;
             if (!geminiOutput) {
@@ -513,15 +508,30 @@ async function runBrainstormLoop() {
             }
 
             if (brainstormState.mode === 'DISCUSSION') {
-                const violation = getDiscussionViolation(geminiOutput);
+                let violation = getDiscussionViolation(geminiOutput);
                 if (violation) {
                     log(`[RULE VIOLATION] Gemini: ${violation}. Attempting repair...`, 'system');
                     const repairPrompt = `[SYSTEM: RULE VIOLATION] ${violation}\n\nRULES REMINDER:\n1. Address Agent B directly.\n2. DO NOT address the human user or use AI disclaimers.\n\nPlease rewrite your previous response exactly to comply with these rules. Do not include apologies, just output the corrected response.`;
-                    const repairedOutput = await sendPromptToTab(brainstormState.geminiTabId!, repairPrompt);
+                    let repairedOutput = await sendPromptToTab(brainstormState.geminiTabId!, repairPrompt);
+                    
                     if (repairedOutput && brainstormState.active) {
+                        violation = getDiscussionViolation(repairedOutput);
+                        if (violation) {
+                            log(`[RULE VIOLATION] Gemini: ${violation}. Repair failed, regenerating once more...`, 'system');
+                            repairedOutput = await sendPromptToTab(brainstormState.geminiTabId!, repairPrompt);
+                            violation = getDiscussionViolation(repairedOutput || "");
+                        }
+                    }
+
+                    if (violation || !repairedOutput) {
+                        log(`[RULE VIOLATION] Gemini: Repair completely failed. Forcing generic response.`, 'error');
+                        geminiOutput = "[SYSTEM ENFORCED REPLACEMENT] Your last message drifted into user-facing mode. Narrow your claim and continue the debate.";
+                    } else if (repairedOutput && brainstormState.active) {
                         geminiOutput = repairedOutput;
                     }
                 }
+                brainstormState.discussionTurnSinceCheckpoint++;
+                saveState();
             }
 
             if (brainstormState.sessionId) {
@@ -535,6 +545,9 @@ async function runBrainstormLoop() {
                     brainstormState.isPaused = true;
                     brainstormState.awaitingHumanDecision = true;
                     log(`[ESCALATION DETECTED] Gemini requests human input. Reason: ${escalation.reason}`, 'system');
+                    if (brainstormState.sessionId) {
+                        await appendEscalation(brainstormState.sessionId, escalation).catch(() => {});
+                    }
                     saveState();
                     continue; // Skip the wait and immediately prompt the UI that we are paused
                 }
@@ -563,7 +576,14 @@ async function runBrainstormLoop() {
                 saveState();
             }
 
-            const chatGPTPrompt = roleConfig.chatGPTLoop(chatBasePrompt, brainstormState.customChatGPTPrompt);
+            let chatGPTPrompt = roleConfig.chatGPTLoop(chatBasePrompt, brainstormState.customChatGPTPrompt);
+
+            if (brainstormState.mode === 'DISCUSSION' && brainstormState.discussionTurnSinceCheckpoint >= 4) {
+                chatGPTPrompt += `\n\n[DISCUSSION CONTROL]\nDo not expand the topic further.\nYour next response must do exactly one of the following:\n- conclude the current sub-issue,\n- mark a claim unsupported,\n- mark a claim as inference only,\n- escalate for human input.`;
+                brainstormState.discussionTurnSinceCheckpoint = 0;
+                log(`Convergence checkpoint reached. Forced sub-issue conclusion requested for ChatGPT.`, 'system');
+                saveState();
+            }
 
             let chatGPTOutput = await sendPromptToTab(brainstormState.chatGPTTabId!, chatGPTPrompt);
             if (!brainstormState.active) break;
@@ -573,15 +593,30 @@ async function runBrainstormLoop() {
             }
 
             if (brainstormState.mode === 'DISCUSSION') {
-                const violation = getDiscussionViolation(chatGPTOutput);
+                let violation = getDiscussionViolation(chatGPTOutput);
                 if (violation) {
                     log(`[RULE VIOLATION] ChatGPT: ${violation}. Attempting repair...`, 'system');
                     const repairPrompt = `[SYSTEM: RULE VIOLATION] ${violation}\n\nRULES REMINDER:\n1. Address Agent A directly.\n2. DO NOT address the human user or use AI disclaimers.\n\nPlease rewrite your previous response exactly to comply with these rules. Do not include apologies, just output the corrected response.`;
-                    const repairedOutput = await sendPromptToTab(brainstormState.chatGPTTabId!, repairPrompt);
+                    let repairedOutput = await sendPromptToTab(brainstormState.chatGPTTabId!, repairPrompt);
+                    
                     if (repairedOutput && brainstormState.active) {
+                        violation = getDiscussionViolation(repairedOutput);
+                        if (violation) {
+                            log(`[RULE VIOLATION] ChatGPT: ${violation}. Repair failed, regenerating once more...`, 'system');
+                            repairedOutput = await sendPromptToTab(brainstormState.chatGPTTabId!, repairPrompt);
+                            violation = getDiscussionViolation(repairedOutput || "");
+                        }
+                    }
+
+                    if (violation || !repairedOutput) {
+                        log(`[RULE VIOLATION] ChatGPT: Repair completely failed. Forcing generic response.`, 'error');
+                        chatGPTOutput = "[SYSTEM ENFORCED REPLACEMENT] Your last message drifted into user-facing mode. Narrow your claim and continue the debate.";
+                    } else if (repairedOutput && brainstormState.active) {
                         chatGPTOutput = repairedOutput;
                     }
                 }
+                brainstormState.discussionTurnSinceCheckpoint++;
+                saveState();
             }
 
             currentInput = chatGPTOutput;
@@ -600,6 +635,9 @@ async function runBrainstormLoop() {
                     brainstormState.isPaused = true;
                     brainstormState.awaitingHumanDecision = true;
                     log(`[ESCALATION DETECTED] ChatGPT requests human input. Reason: ${escalation.reason}`, 'system');
+                    if (brainstormState.sessionId) {
+                        await appendEscalation(brainstormState.sessionId, escalation).catch(() => {});
+                    }
                     saveState();
                     continue; // Immediately loop back around to wait at the top if paused
                 }

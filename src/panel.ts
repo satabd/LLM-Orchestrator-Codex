@@ -1,20 +1,7 @@
-import { applyTranslationsToDOM, getLanguage, setLanguage, t, Language } from './i18n';
+import { applyTranslationsToDOM, getLanguage, setLanguage, t, Language } from './i18n.js';
+import { BrainstormState, EscalationPayload } from './types.js';
 
 let currentLang: Language = 'en';
-
-// Interface matching background state
-interface BrainstormState {
-    active: boolean;
-    prompt: string;
-    role: string;
-    customGeminiPrompt?: string;
-    customChatGPTPrompt?: string;
-    rounds: number;
-    currentRound: number;
-    geminiTabId: number | null;
-    chatGPTTabId: number | null;
-    statusLog: string[];
-}
 
 // Ensure these match panel.html IDs
 const ELEMENTS = {
@@ -22,6 +9,7 @@ const ELEMENTS = {
     chatGPTSelect: document.getElementById('chatGPTTabSelect') as HTMLSelectElement,
     roundsInput: document.getElementById('roundsInput') as HTMLInputElement,
     modeSelect: document.getElementById('modeSelect') as HTMLSelectElement,
+    discussionHelpText: document.getElementById('discussionHelpText') as HTMLElement,
     roleSelect: document.getElementById('roleSelect') as HTMLSelectElement,
     customRoleInputs: document.getElementById('customRoleInputs') as HTMLElement,
     geminiPromptInput: document.getElementById('geminiPromptInput') as HTMLTextAreaElement,
@@ -43,6 +31,15 @@ const ELEMENTS = {
     exportLastBtn: document.getElementById('exportLastBtn') as HTMLButtonElement,
     exportFullBtn: document.getElementById('exportFullBtn') as HTMLButtonElement,
     exportStatus: document.getElementById('exportStatus') as HTMLElement,
+
+    // Escalation Card
+    escalationCard: document.getElementById('escalationCard') as HTMLElement,
+    escReason: document.getElementById('escReason') as HTMLElement,
+    escDecision: document.getElementById('escDecision') as HTMLElement,
+    escOptions: document.getElementById('escOptions') as HTMLElement,
+    escRecommended: document.getElementById('escRecommended') as HTMLElement,
+    escFeedbackInput: document.getElementById('escFeedbackInput') as HTMLTextAreaElement,
+    resolveEscalationBtn: document.getElementById('resolveEscalationBtn') as HTMLButtonElement,
 
     // Human Moderator
     humanModeratorCard: document.getElementById('humanModeratorCard') as HTMLElement,
@@ -157,14 +154,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     ELEMENTS.concludeBtn.addEventListener('click', generateConclusion);
 
     // Human Mode actions
-    ELEMENTS.resumeWithFeedbackBtn.addEventListener('click', () => resumeRun(true));
+    ELEMENTS.resumeWithFeedbackBtn.addEventListener('click', () => resumeRun(true, ELEMENTS.humanFeedbackInput.value.trim()));
     ELEMENTS.resumeSilentBtn.addEventListener('click', () => resumeRun(false));
+    ELEMENTS.resolveEscalationBtn.addEventListener('click', () => resumeRun(true, ELEMENTS.escFeedbackInput.value.trim()));
 
     ELEMENTS.exportLastBtn.addEventListener('click', () => handleExport('last'));
     ELEMENTS.exportFullBtn.addEventListener('click', () => handleExport('full'));
 
     ELEMENTS.roleSelect.addEventListener('change', () => {
         ELEMENTS.customRoleInputs.style.display = ELEMENTS.roleSelect.value === 'CUSTOM' ? 'block' : 'none';
+    });
+
+    ELEMENTS.modeSelect.addEventListener('change', () => {
+        if (ELEMENTS.discussionHelpText) {
+            ELEMENTS.discussionHelpText.style.display = ELEMENTS.modeSelect.value === 'DISCUSSION' ? 'block' : 'none';
+        }
     });
 
     // Tabs
@@ -228,7 +232,7 @@ function updateUI(state: BrainstormState) {
     // Status Badge
     let statusText = state.active ? t('running', currentLang) : t('idle', currentLang);
     let statusClass = state.active ? "running" : "idle";
-    if (state.active && (state as any).isPaused) {
+    if (state.active && state.isPaused) {
         statusText = t('paused', currentLang);
         statusClass = "idle"; // Give it a different tone, maybe warning color if we had one
     }
@@ -240,12 +244,31 @@ function updateUI(state: BrainstormState) {
     if (state.active) {
         ELEMENTS.startBtn.style.display = 'none';
 
-        if ((state as any).isPaused) {
+        if (state.isPaused) {
             ELEMENTS.pauseBtn.style.display = 'none';
-            ELEMENTS.humanModeratorCard.style.display = 'flex';
+            if (state.awaitingHumanDecision && state.lastEscalation) {
+                ELEMENTS.escalationCard.style.display = 'block';
+                ELEMENTS.humanModeratorCard.style.display = 'none';
+                
+                ELEMENTS.escReason.textContent = state.lastEscalation.reason;
+                ELEMENTS.escDecision.textContent = state.lastEscalation.decision_needed;
+                
+                ELEMENTS.escOptions.innerHTML = '';
+                state.lastEscalation.options.forEach(opt => {
+                    const li = document.createElement('li');
+                    li.textContent = opt;
+                    ELEMENTS.escOptions.appendChild(li);
+                });
+                
+                ELEMENTS.escRecommended.textContent = state.lastEscalation.recommended_option;
+            } else {
+                ELEMENTS.escalationCard.style.display = 'none';
+                ELEMENTS.humanModeratorCard.style.display = 'flex';
+            }
         } else {
             ELEMENTS.pauseBtn.style.display = 'inline-block';
             ELEMENTS.humanModeratorCard.style.display = 'none';
+            ELEMENTS.escalationCard.style.display = 'none';
         }
 
         ELEMENTS.stopBtn.style.display = 'inline-block';
@@ -256,6 +279,7 @@ function updateUI(state: BrainstormState) {
         ELEMENTS.pauseBtn.style.display = 'none';
         ELEMENTS.stopBtn.style.display = 'none';
         ELEMENTS.humanModeratorCard.style.display = 'none';
+        if (ELEMENTS.escalationCard) ELEMENTS.escalationCard.style.display = 'none';
         toggleInputs(true);
 
         // Show post-run actions if loop finished
@@ -269,6 +293,10 @@ function updateUI(state: BrainstormState) {
     // Sync input values (only if we're not typing? simplify: sync if running, ignore if idle to allow edit)
     if (state.active) {
         ELEMENTS.roundsInput.value = String(state.rounds);
+        ELEMENTS.modeSelect.value = state.mode;
+        if (ELEMENTS.discussionHelpText) {
+            ELEMENTS.discussionHelpText.style.display = state.mode === 'DISCUSSION' ? 'block' : 'none';
+        }
         ELEMENTS.roleSelect.value = state.role;
         ELEMENTS.customRoleInputs.style.display = state.role === 'CUSTOM' ? 'block' : 'none';
 
@@ -367,8 +395,8 @@ function pauseRun() {
     });
 }
 
-function resumeRun(withFeedback: boolean) {
-    const feedback = withFeedback ? ELEMENTS.humanFeedbackInput.value.trim() : "";
+function resumeRun(withFeedback: boolean, feedbackText?: string) {
+    const feedback = withFeedback ? (feedbackText !== undefined ? feedbackText : ELEMENTS.humanFeedbackInput.value.trim()) : "";
     if (withFeedback && !feedback) {
         alert(t('enterFeedback', currentLang));
         return;
@@ -376,6 +404,7 @@ function resumeRun(withFeedback: boolean) {
 
     // Clear the box for next time
     ELEMENTS.humanFeedbackInput.value = "";
+    ELEMENTS.escFeedbackInput.value = "";
 
     chrome.runtime.sendMessage({ action: "resumeBrainstorm", feedback }, (res) => {
         if (!res || !res.success) logLocal("Failed to resume: " + (res?.error || "Unknown"));

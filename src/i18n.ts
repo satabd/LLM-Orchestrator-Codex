@@ -81,7 +81,16 @@ export const translations = {
         "exportFailed": "Export failed.",
         "deleteConfirm": "Delete this session record?",
         "view": "View",
-        "del": "Del"
+        "del": "Del",
+        "escalationTriggered": "Escalation Triggered",
+        "escalationReason": "Reason",
+        "decisionNeeded": "Decision Needed",
+        "options": "Options",
+        "recommendedOption": "Recommended",
+        "yourDecision": "Your Decision",
+        "resolveEscalation": "Resolve Escalation",
+        "decisionPlaceholder": "Type your decision here to resolve the escalation...",
+        "discussionHelp": "Silent Observer Mode: AI agents talk strictly to each other. The system will pause and ask for your input only if they reach an impasse."
     },
     ar: {
         "appTitle": "المنسق (LLM Orchestrator)",
@@ -163,7 +172,16 @@ export const translations = {
         "exportFailed": "فشل التصدير.",
         "deleteConfirm": "هل تريد حذف سجل هذه الجلسة؟",
         "view": "عرض",
-        "del": "حذف"
+        "del": "حذف",
+        "escalationTriggered": "تم تفعيل التصعيد",
+        "escalationReason": "السبب",
+        "decisionNeeded": "القرار المطلوب",
+        "options": "الخيارات",
+        "recommendedOption": "الموصى به",
+        "yourDecision": "قرارك",
+        "resolveEscalation": "حل التصعيد",
+        "decisionPlaceholder": "اكتب قرارك هنا لحل التصعيد...",
+        "discussionHelp": "وضع المراقب الصامت: يتحدث وكلاء الذكاء الاصطناعي مع بعضهم البعض بدقة. سيتوقف النظام ويطلب إدخالك فقط إذا وصلوا إلى طريق مسدود."
     }
 };
 

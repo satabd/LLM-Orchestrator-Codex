@@ -84,12 +84,13 @@
                     <div class="form-group half">
                         <label for="modeSelect" data-i18n="mode">Mode</label>
                         <select id="modeSelect">
-                            <option value="PING_PONG" data-i18n="pingPong">Ping Pong</option>
-                            <option value="GEMINI_ONLY" data-i18n="geminiOnly">Gemini Only</option>
-                            <option value="ChatGPT_ONLY" data-i18n="chatGptOnly">ChatGPT Only</option>
-                            <option value="DISCUSSION" data-i18n="discussionMode">Discussion (Agent-to-Agent)</option>
-                        </select>
-                    </div>
+                        <option value="PING_PONG" data-i18n="pingPong">Ping Pong</option>
+                        <option value="GEMINI_ONLY" data-i18n="geminiOnly">Gemini Only</option>
+                        <option value="ChatGPT_ONLY" data-i18n="chatGptOnly">ChatGPT Only</option>
+                        <option value="DISCUSSION" data-i18n="discussionMode">Discussion (Agent-to-Agent)</option>
+                    </select>
+                    <div id="discussionHelpText" class="status-text" style="display: none; margin-top: 5px; color: var(--text-color); font-size: 13px; font-style: italic;" data-i18n="discussionHelp"></div>
+                </div>
                 </div>
 
                 <div class="form-group">
@@ -124,6 +125,36 @@
                     <button id="startBtn" class="btn primary" data-i18n="startRun">Start Run</button>
                     <button id="pauseBtn" class="btn secondary" style="display: none;" data-i18n="pause">Pause</button>
                     <button id="stopBtn" class="btn danger" style="display: none;" data-i18n="stop">Stop</button>
+                </div>
+            </div>
+
+            <!-- Escalation Card -->
+            <div id="escalationCard" class="card" style="display: none; border-color: var(--danger-color);">
+                <h2 style="color: var(--danger-color);" data-i18n="escalationTriggered">Escalation Triggered</h2>
+                <div class="form-group">
+                    <label data-i18n="escalationReason" style="font-weight: bold;">Reason</label>
+                    <div id="escReason" class="status-text" style="margin-bottom: 8px;"></div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="decisionNeeded" style="font-weight: bold;">Decision Needed</label>
+                    <div id="escDecision" class="status-text" style="margin-bottom: 8px;"></div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="options" style="font-weight: bold;">Options</label>
+                    <ul id="escOptions" style="margin: 5px 0 10px 15px; font-size: 13px; color: var(--text-color);"></ul>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="recommendedOption" style="font-weight: bold;">Recommended</label>
+                    <div id="escRecommended" class="status-text" style="margin-bottom: 8px;"></div>
+                </div>
+                
+                <h3 style="margin-top: 15px; font-size: 14px; margin-bottom: 5px;" data-i18n="yourDecision">Your Decision</h3>
+                <div class="form-group">
+                    <textarea id="escFeedbackInput" rows="3" data-i18n-placeholder="decisionPlaceholder"
+                        placeholder="Type your decision here to resolve the escalation..."></textarea>
+                </div>
+                <div class="actions" style="margin-top: 5px;">
+                    <button id="resolveEscalationBtn" class="btn primary" data-i18n="resolveEscalation">Resolve Escalation</button>
                 </div>
             </div>
 

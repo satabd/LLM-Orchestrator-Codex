@@ -1,17 +1,6 @@
-export interface TranscriptEntry {
-    agent: 'User' | 'Gemini' | 'ChatGPT' | 'System';
-    text: string;
-}
+import { TranscriptEntry, BrainstormSession, EscalationPayload } from './types.js';
 
-export interface BrainstormSession {
-    id: string;
-    topic: string;
-    mode: string;
-    role: string;
-    timestamp: number;
-    transcript: TranscriptEntry[];
-    escalations?: any[];
-}
+export type { TranscriptEntry, BrainstormSession, EscalationPayload };
 
 const DB_NAME = 'LLMOrchestratorDB';
 const DB_VERSION = 1;
@@ -96,5 +85,28 @@ export async function deleteSession(id: string): Promise<void> {
         const request = store.delete(id);
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
+    });
+}
+
+export async function appendEscalation(sessionId: string, escalation: EscalationPayload): Promise<void> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.get(sessionId);
+
+        request.onsuccess = () => {
+            const session = request.result;
+            if (session) {
+                if (!session.escalations) {
+                    session.escalations = [];
+                }
+                session.escalations.push(escalation);
+                store.put(session);
+            }
+        };
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
     });
 }
