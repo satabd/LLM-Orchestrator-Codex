@@ -1,6 +1,6 @@
 {
     "name": "llm-orchestrator-codex",
-    "version": "1.5.34",
+    "version": "1.5.35",
     "description": "Extracts Gemini and ChatGPT chat history and saves it as a Markdown file.",
     "scripts": {
         "dev": "vite build --watch",

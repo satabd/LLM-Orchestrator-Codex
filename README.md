@@ -2,6 +2,14 @@
 
 A powerful Chrome Extension that orchestrates structured collaboration between Google Gemini and OpenAI ChatGPT. It uses your active browser tabs to help the models brainstorm, critique, refine, and synthesize ideas without manual copy-paste between tools.
 
+## No API Keys Required
+
+This project does not use OpenAI API keys, Gemini API keys, or any server-side model credentials.
+
+- It works by automating the browser versions of [ChatGPT](https://chatgpt.com) and [Gemini](https://gemini.google.com) in tabs where you are already signed in.
+- Your normal access to those websites is what powers the workflow.
+- There is no built-in backend proxy or secret key exchange in this repository.
+
 ## ✨ Features
 
 - **Idea Studio Workspace:** The side panel is now a studio-style control surface with setup, live session monitoring, intervention controls, outputs, checkpoints, and branch actions.
@@ -39,6 +47,11 @@ This repository should make feature progress visible in source control and in th
 - The orchestrator now tracks session framing, phase (`DIVERGE` / `CONVERGE` / `FINALIZE`), turn intent, repair visibility, checkpoint snapshots, moderator decisions, artifact harvesting, branch lineage, and multi-finale outputs.
 - The setup surface now includes a real first-agent / second-agent flow with a flip control, and the run loop respects the selected opening speaker instead of always hard-coding Gemini first.
 - The panel palette was refreshed to a cleaner neutral and blue look so the configuration area feels lighter and easier to scan.
+- Transcript rendering now escapes raw HTML before Markdown rendering so saved model output cannot execute markup inside the transcript viewer.
+- The history view now includes a `Clear Local Data` action that removes saved sessions, profiles, export cache, and local orchestrator state from the browser.
+- A root `.gitignore` now blocks common secret files, certificates, local env files, build output, and release zip artifacts from being re-committed accidentally.
+- README messaging now makes the browser-automation model explicit: the extension uses signed-in ChatGPT and Gemini tabs directly and does not require API keys.
+- Added contributor-facing repo scaffolding with `CONTRIBUTING.md` and GitHub issue templates for bug reports and feature requests.
 
 ### Documentation Rule
 
@@ -62,7 +75,7 @@ Because this extension operates by directly scripting actions within `gemini.goo
 ## 🛠️ How to Use
 
 1. **Open the Orchestrator:** Click the LLM Orchestrator extension icon to open the Side Panel UI.
-2. **Auto-Tab Spawning:** If you don't already have [ChatGPT](https://chatgpt.com) and [Gemini](https://gemini.google.com) open, the extension will instantly open them in the background for you. *(Ensure you are logged into both).*
+2. **Auto-Tab Spawning:** If you don't already have [ChatGPT](https://chatgpt.com) and [Gemini](https://gemini.google.com) open, the extension will instantly open them in the background for you. *(Ensure you are logged into both.)*
 3. **Configure the Run:**
    - Choose which model opens the run with the **First Agent** selector, or use the **Flip** button to swap the order instantly.
    - The panel will automatically detect your active ChatGPT and Gemini tabs.
@@ -75,6 +88,7 @@ Because this extension operates by directly scripting actions within `gemini.goo
 7. **Review Outputs:** Switch between Transcript, Highlights, Actionable Ideas, and Final Synthesis in the output pane.
 8. **Fork from Checkpoints:** Use checkpoint or branch actions to spin out a new branch draft from a previous snapshot.
 9. **Review History:** Click the **History Tab** to browse past sessions and export them.
+10. **Clear Local Data:** Use **History -> Clear Local Data** to wipe saved sessions, profiles, cached transcript exports, and stored orchestrator state from this browser profile.
 
 ### Session Type Notes
 
@@ -87,6 +101,13 @@ Because this extension operates by directly scripting actions within `gemini.goo
 - In `Agent Workshop`, the agents are expected to address each other directly, not the human observer.
 - The human steps in only when manually pausing or when an `[ESCALATION_REQUIRED]` block pauses the loop.
 - When escalation is triggered, the panel shows the structured decision request and resumes the discussion after human input is supplied.
+
+## Privacy And Public Repo Notes
+
+- The extension stores prompts, transcripts, escalations, moderator input, profiles, and session metadata locally in the browser using `chrome.storage.local` and IndexedDB.
+- No API keys are required by the repository itself; the extension works by automating browser tabs that you are already logged into.
+- Before sharing screenshots, logs, or exported transcripts, review them for private prompts, business data, or personal information.
+- If you want to remove local session history before demos or machine sharing, use the `Clear Local Data` action from the History view.
 
 ## 🏗️ Architecture
 
@@ -102,3 +123,65 @@ Because this extension operates by directly scripting actions within `gemini.goo
 
 ---
 *Built iteratively by collaborating humans and AIs.*
+
+---
+
+## العربية
+
+### نظرة عامة
+
+LLM Orchestrator هو إضافة Chromium تعمل من اللوحة الجانبية لتنسيق التعاون بين ChatGPT و Gemini مباشرة من علامات التبويب التي سجلت دخولك فيها. لا يحتاج المشروع إلى مفاتيح API، لأنه يعتمد على واجهات الويب الخاصة بالخدمتين داخل المتصفح نفسه.
+
+### لا حاجة إلى مفاتيح API
+
+- هذا المشروع لا يستخدم مفاتيح OpenAI API أو Gemini API.
+- يعتمد على تشغيل ChatGPT و Gemini من المتصفح بعد تسجيل الدخول إلى حساباتك.
+- لا توجد في هذا المستودع خدمة وسيطة backend أو تبادل أسرار لتشغيل النماذج.
+
+### أهم الميزات
+
+- `Collaborative Exchange`: تبادل مرن بين النموذجين حول طلبك.
+- `Agent Workshop`: جلسة أكثر صرامة يتحدث فيها النموذجان مع بعضهما مباشرة بينما تراقب أنت.
+- اختيار `First Agent` و `Second Agent` مع زر `Flip` لتبديل من يبدأ.
+- نقاط توقف `checkpoints`، تفرعات `branches`، وتصدير للنصوص.
+- تصعيد منظم `escalation` عند الحاجة إلى قرار بشري.
+- حفظ محلي للجلسات مع إمكانية `Clear Local Data`.
+
+### التثبيت
+
+1. ثبّت الاعتماديات:
+
+```bash
+npm install
+```
+
+2. ابنِ المشروع:
+
+```bash
+npm run build
+```
+
+3. افتح `chrome://extensions` أو صفحة الإضافات في Edge.
+4. فعّل `Developer Mode`.
+5. اختر `Load unpacked`.
+6. حدّد مجلد `dist`.
+
+### طريقة العمل
+
+1. افتح ChatGPT و Gemini في المتصفح وتأكد من تسجيل الدخول.
+2. افتح اللوحة الجانبية الخاصة بالإضافة.
+3. اختر نوع الجلسة وأسلوب التعاون.
+4. اختر من يبدأ الجلسة أو استخدم زر `Flip`.
+5. أدخل الموضوع أو السؤال.
+6. ابدأ التشغيل وراقب التبادل أو التدخل أو التصعيد عند الحاجة.
+
+### الخصوصية
+
+- الإضافة تحفظ المطالبات، النصوص، التصعيدات، وتعليمات المشرف محلياً في المتصفح باستخدام `chrome.storage.local` و IndexedDB.
+- قبل مشاركة لقطات شاشة أو نصوص مصدّرة، راجعها جيداً لاحتمال احتوائها على بيانات خاصة أو حساسة.
+- يمكنك حذف البيانات المحلية من خلال `History -> Clear Local Data`.
+
+### ملاحظات مهمة
+
+- تعتمد الإضافة على بنية صفحات ChatGPT و Gemini، لذلك قد تحتاج إلى تحديث إذا تغيّرت واجهات المواقع.
+- إذا غيّرت سلوك المنتج أو أضفت ميزة مؤثرة، يجب تحديث قسم `Project Evolution` في README.

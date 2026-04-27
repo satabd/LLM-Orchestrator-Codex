@@ -4,6 +4,7 @@ import {
     getAllSessions,
     getSession,
     deleteSession,
+    clearAllSessions,
     appendEscalation,
     appendCheckpoint,
     saveArtifacts,
@@ -191,6 +192,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     if (request.action === "deleteSession") {
         deleteSession(request.id).then(() => sendResponse({ success: true })).catch(() => sendResponse({ success: false }));
+        return true;
+    }
+    if (request.action === "clearLocalData") {
+        (async () => {
+            await clearAllSessions();
+            await chrome.storage.local.remove([
+                'brainstormState',
+                'uiConfig',
+                'studioProfiles',
+                'branchDraft',
+                'transcriptData',
+                'transcriptMeta'
+            ]);
+            brainstormState = { ...DEFAULT_STATE };
+            saveState();
+            sendResponse({ success: true });
+        })().catch(e => sendResponse({ success: false, error: e.message }));
         return true;
     }
     if (request.action === "getBrainstormState") {

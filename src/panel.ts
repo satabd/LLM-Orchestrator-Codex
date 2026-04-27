@@ -67,6 +67,7 @@ const ELEMENTS = {
     saveProfileBtn: document.getElementById('saveProfileBtn') as HTMLButtonElement,
     profileList: document.getElementById('profileList') as HTMLElement,
     historyList: document.getElementById('historyList') as HTMLElement,
+    clearLocalDataBtn: document.getElementById('clearLocalDataBtn') as HTMLButtonElement,
     refreshHistoryBtn: document.getElementById('refreshHistoryBtn') as HTMLButtonElement,
     historyDetailView: document.getElementById('historyDetailView') as HTMLElement,
     historyDetailTitle: document.getElementById('historyDetailTitle') as HTMLElement,
@@ -257,9 +258,9 @@ function renderFraming() {
     }
     ELEMENTS.framingCard.innerHTML = `
         <strong>Goal Framing</strong>
-        <div><strong>Objective:</strong> ${framing.objective}</div>
-        <div><strong>Constraints:</strong> ${framing.constraints.join(' | ')}</div>
-        <div><strong>Success:</strong> ${framing.successCriteria.join(' | ')}</div>`;
+        <div><strong>Objective:</strong> ${escapeHtml(framing.objective)}</div>
+        <div><strong>Constraints:</strong> ${framing.constraints.map(item => escapeHtml(item)).join(' | ')}</div>
+        <div><strong>Success:</strong> ${framing.successCriteria.map(item => escapeHtml(item)).join(' | ')}</div>`;
 }
 
 function renderTimeline() {
@@ -271,7 +272,7 @@ function renderTimeline() {
         item.innerHTML = `
             <strong>${entry.agent}</strong>
             <div class="rail-meta"><span>${entry.intent || 'n/a'}</span><span>${entry.phase || 'n/a'}</span></div>
-            <div>${entry.text.slice(0, 220)}${entry.text.length > 220 ? '...' : ''}</div>
+            <div>${escapeHtml(entry.text.slice(0, 220))}${entry.text.length > 220 ? '...' : ''}</div>
             <div class="status-text">${entry.repairStatus ? `repair: ${entry.repairStatus}` : ''}</div>`;
         ELEMENTS.timelineList.appendChild(item);
     });
@@ -286,7 +287,7 @@ function renderCheckpoints() {
         card.innerHTML = `
             <strong>${checkpoint.label}</strong>
             <div class="status-text">Turn ${checkpoint.turn} · ${checkpoint.phase}</div>
-            <div>${checkpoint.summary}</div>`;
+            <div>${escapeHtml(checkpoint.summary)}</div>`;
         const actions = document.createElement('div');
         actions.className = 'actions';
         const forkBtn = document.createElement('button');
@@ -581,6 +582,24 @@ function deleteHistorySession(id: string) {
     chrome.runtime.sendMessage({ action: "deleteSession", id }, loadHistory);
 }
 
+function clearLocalData() {
+    if (!confirm(t('clearLocalDataConfirm', currentLang))) return;
+    chrome.runtime.sendMessage({ action: "clearLocalData" }, (response) => {
+        if (!response?.success) {
+            alert(response?.error || t('clearLocalDataFailed', currentLang));
+            return;
+        }
+        currentSession = null;
+        currentHistorySessions = [];
+        currentState = null;
+        ELEMENTS.historyDetailView.style.display = 'none';
+        ELEMENTS.historyList.innerHTML = `<div class="status-text">${t('noHistoryFound', currentLang)}</div>`;
+        refreshActiveSession();
+        loadHistory();
+        alert(t('clearLocalDataDone', currentLang));
+    });
+}
+
 function escapeHtml(value: string) {
     return value
         .replace(/&/g, '&amp;')
@@ -657,6 +676,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     ELEMENTS.exportLastBtn.addEventListener('click', () => handleExport('last'));
     ELEMENTS.exportFullBtn.addEventListener('click', () => handleExport('full'));
     ELEMENTS.saveProfileBtn.addEventListener('click', saveProfile);
+    ELEMENTS.clearLocalDataBtn.addEventListener('click', clearLocalData);
     ELEMENTS.refreshHistoryBtn.addEventListener('click', loadHistory);
     ELEMENTS.closeHistoryDetailBtn.addEventListener('click', () => { ELEMENTS.historyDetailView.style.display = 'none'; });
     ELEMENTS.tabActiveBtn.addEventListener('click', () => switchTab('active'));
