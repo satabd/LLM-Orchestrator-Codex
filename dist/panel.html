@@ -1,51 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLM Orchestrator Panel</title>
-    <style>
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        [dir="rtl"] .header-controls {
-            margin-right: auto;
-            margin-left: 0;
-        }
-        
-        [dir="ltr"] .header-controls {
-            margin-left: auto;
-            margin-right: 0;
-        }
-
-        header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        [dir="rtl"] .actions, [dir="rtl"] .mini-actions {
-            flex-direction: row; /* Ensure buttons still flow correctly */
-        }
-        
-        [dir="rtl"] .form-group.half {
-            float: right;
-        }
-    </style>
+    <title>LLM Orchestrator Panel</title>
   <script type="module" crossorigin src="/panel.js"></script>
   <link rel="modulepreload" crossorigin href="/modulepreload-polyfill.js">
   <link rel="modulepreload" crossorigin href="/i18n.js">
   <link rel="stylesheet" crossorigin href="/panel.css">
 </head>
-
 <body>
     <div class="panel-container">
-        <header>
-            <h1 data-i18n="appTitle">LLM Orchestrator</h1>
+        <header class="studio-header">
+            <div>
+                <h1 data-i18n="appTitle">LLM Orchestrator</h1>
+                <p class="studio-subtitle">Idea Studio workspace for multi-agent exploration, branching, and synthesis.</p>
+            </div>
             <div class="header-controls">
                 <div id="status-badge" class="badge idle" data-i18n="idle">Idle</div>
                 <button id="langToggleBtn" class="btn link">عربي</button>
@@ -58,158 +28,256 @@
         </div>
 
         <div id="tabActiveContent" class="tab-content active">
-
-            <div class="card">
-                <h2 data-i18n="configuration">Configuration</h2>
-
-                <div class="form-group">
-                    <label for="geminiTabSelect" data-i18n="geminiTab">Gemini Tab</label>
-                    <select id="geminiTabSelect">
-                        <option value="" data-i18n="detecting">Detecting...</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="chatGPTTabSelect" data-i18n="chatGPTTab">ChatGPT Tab</label>
-                    <select id="chatGPTTabSelect">
-                        <option value="" data-i18n="detecting">Detecting...</option>
-                    </select>
-                </div>
-
-                <div class="row">
-                    <div class="form-group half">
-                        <label for="roundsInput" data-i18n="rounds">Rounds</label>
-                        <input type="number" id="roundsInput" value="3" min="1" max="20">
+            <section class="workspace-grid">
+                <div class="zone zone-setup card">
+                    <div class="section-head">
+                        <h2>Studio Setup</h2>
+                        <span class="eyebrow">Create or resume a creative session</span>
                     </div>
-                    <div class="form-group half">
-                        <label for="modeSelect" data-i18n="mode">Mode</label>
-                        <select id="modeSelect">
-                        <option value="PING_PONG" data-i18n="pingPong">Ping Pong</option>
-                        <option value="GEMINI_ONLY" data-i18n="geminiOnly">Gemini Only</option>
-                        <option value="ChatGPT_ONLY" data-i18n="chatGptOnly">ChatGPT Only</option>
-                        <option value="DISCUSSION" data-i18n="discussionMode">Discussion (Agent-to-Agent)</option>
-                    </select>
-                    <div id="discussionHelpText" class="status-text" style="display: none; margin-top: 5px; color: var(--text-color); font-size: 13px; font-style: italic;" data-i18n="discussionHelp"></div>
-                </div>
-                </div>
 
-                <div class="form-group">
-                    <label for="roleSelect" data-i18n="role">Brainstorming Role</label>
-                    <select id="roleSelect">
-                        <option value="CRITIC" data-i18n="roleCritic">Critic (Refiner vs Critic)</option>
-                        <option value="EXPANDER" data-i18n="roleExpander">Expander (Yes, And...)</option>
-                        <option value="ARCHITECT" data-i18n="roleArchitect">Architect (Visionary vs Architect)</option>
-                        <option value="DEV_ADVOCATE" data-i18n="roleDevilAdvocate">Devil's Advocate (Proposer vs Destroyer)</option>
-                        <option value="FIRST_PRINCIPLES" data-i18n="roleFirstPrinciples">First Principles (Deconstructor vs Synthesizer)</option>
-                        <option value="INTERVIEWER" data-i18n="roleInterviewer">Interviewer (Journalist vs Domain Expert)</option>
-                        <option value="FIVE_WHYS" data-i18n="roleFiveWhys">Five Whys (Root Cause Analysis)</option>
-                        <option value="HISTORIAN_FUTURIST" data-i18n="roleTimeJump">Time Jump (Historian vs Futurist)</option>
-                        <option value="ELI5" data-i18n="roleEli5">Explain Like I'm 5 (Academic vs ELI5)</option>
-                        <option value="CUSTOM" data-i18n="roleCustom">Custom System Prompts...</option>
-                    </select>
-                </div>
+                    <div class="setup-stack">
+                        <div class="setup-block">
+                            <div class="mini-label">Session Type</div>
+                            <div class="mode-cards">
+                                <button id="modePingPongCard" class="mode-card active" data-mode="PING_PONG" type="button">
+                                    <strong>Collaborative Exchange</strong>
+                                    <span>Gemini opens, ChatGPT responds, both iterate on your prompt.</span>
+                                </button>
+                                <button id="modeDiscussionCard" class="mode-card" data-mode="DISCUSSION" type="button">
+                                    <strong>Agent Workshop</strong>
+                                    <span>Agents talk directly to each other and only pause when they truly need you.</span>
+                                </button>
+                            </div>
+                            <div id="modeHelpText" class="mode-help">Collaborative Exchange: Gemini opens the run and ChatGPT responds. They build on your prompt while referencing each other.</div>
+                            <select id="modeSelect" class="hidden-select">
+                                <option value="PING_PONG">Collaborative Exchange</option>
+                                <option value="DISCUSSION">Agent Workshop</option>
+                            </select>
+                        </div>
 
-                <div id="customRoleInputs" class="form-group" style="display: none;">
-                    <label for="geminiPromptInput" data-i18n="geminiPrompt">Gemini System Prompt</label>
-                    <textarea id="geminiPromptInput" rows="2" data-i18n-placeholder="geminiPromptPlaceholder" placeholder="Instructions for Gemini..."></textarea>
-                    <label for="chatGPTPromptInput" style="margin-top: 8px;" data-i18n="chatGptPrompt">ChatGPT System Prompt</label>
-                    <textarea id="chatGPTPromptInput" rows="2" data-i18n-placeholder="chatGptPromptPlaceholder" placeholder="Instructions for ChatGPT..."></textarea>
-                </div>
+                        <div class="setup-block">
+                            <div class="mini-label">Agent Setup</div>
+                            <div class="agent-order-grid">
+                                <div class="form-group">
+                                    <label for="firstAgentSelect">First Agent</label>
+                                    <select id="firstAgentSelect">
+                                        <option value="Gemini">Gemini</option>
+                                        <option value="ChatGPT">ChatGPT</option>
+                                    </select>
+                                </div>
+                                <div class="flip-cell">
+                                    <button id="flipAgentsBtn" class="flip-btn" type="button" aria-label="Flip agent order" title="Flip agent order">
+                                        <span>⇄</span>
+                                    </button>
+                                </div>
+                                <div class="form-group">
+                                    <label for="secondAgentSelect">Second Agent</label>
+                                    <select id="secondAgentSelect" disabled>
+                                        <option value="ChatGPT">ChatGPT</option>
+                                        <option value="Gemini">Gemini</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
 
-                <div class="form-group">
-                    <label for="topicInput" data-i18n="seedPromptTopic">Seed Prompt / Topic</label>
-                    <textarea id="topicInput" rows="3" data-i18n-placeholder="topicPlaceholder" placeholder="Enter topic or question..."></textarea>
-                </div>
+                        <div class="setup-block">
+                            <div class="mini-label">Creative Direction Presets</div>
+                            <div id="presetChips" class="preset-chips">
+                                <button class="preset-chip" data-role="EXPANDER" type="button">Expand</button>
+                                <button class="preset-chip" data-role="CRITIC" type="button">Stress Test</button>
+                                <button class="preset-chip" data-role="FIRST_PRINCIPLES" type="button">Reframe</button>
+                                <button class="preset-chip" data-role="ARCHITECT" type="button">Productize</button>
+                                <button class="preset-chip" data-role="ELI5" type="button">Simplify</button>
+                                <button class="preset-chip" data-role="HISTORIAN_FUTURIST" type="button">Invent</button>
+                                <button class="preset-chip" data-role="DEV_ADVOCATE" type="button">Critique</button>
+                            </div>
+                        </div>
 
-                <div class="actions">
-                    <button id="startBtn" class="btn primary" data-i18n="startRun">Start Run</button>
-                    <button id="pauseBtn" class="btn secondary" style="display: none;" data-i18n="pause">Pause</button>
-                    <button id="stopBtn" class="btn danger" style="display: none;" data-i18n="stop">Stop</button>
-                </div>
-            </div>
+                        <div class="setup-block two-col">
+                            <div class="form-group">
+                                <label for="geminiTabSelect" data-i18n="geminiTab">Gemini Tab</label>
+                                <select id="geminiTabSelect"><option value="" data-i18n="detecting">Detecting...</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="chatGPTTabSelect" data-i18n="chatGPTTab">ChatGPT Tab</label>
+                                <select id="chatGPTTabSelect"><option value="" data-i18n="detecting">Detecting...</option></select>
+                            </div>
+                        </div>
 
-            <!-- Escalation Card -->
-            <div id="escalationCard" class="card" style="display: none; border-color: var(--danger-color);">
-                <h2 style="color: var(--danger-color);" data-i18n="escalationTriggered">Escalation Triggered</h2>
-                <div class="form-group">
-                    <label data-i18n="escalationReason" style="font-weight: bold;">Reason</label>
-                    <div id="escReason" class="status-text" style="margin-bottom: 8px;"></div>
-                </div>
-                <div class="form-group">
-                    <label data-i18n="decisionNeeded" style="font-weight: bold;">Decision Needed</label>
-                    <div id="escDecision" class="status-text" style="margin-bottom: 8px;"></div>
-                </div>
-                <div class="form-group">
-                    <label data-i18n="options" style="font-weight: bold;">Options</label>
-                    <ul id="escOptions" style="margin: 5px 0 10px 15px; font-size: 13px; color: var(--text-color);"></ul>
-                </div>
-                <div class="form-group">
-                    <label data-i18n="recommendedOption" style="font-weight: bold;">Recommended</label>
-                    <div id="escRecommended" class="status-text" style="margin-bottom: 8px;"></div>
-                </div>
-                
-                <h3 style="margin-top: 15px; font-size: 14px; margin-bottom: 5px;" data-i18n="yourDecision">Your Decision</h3>
-                <div class="form-group">
-                    <textarea id="escFeedbackInput" rows="3" data-i18n-placeholder="decisionPlaceholder"
-                        placeholder="Type your decision here to resolve the escalation..."></textarea>
-                </div>
-                <div class="actions" style="margin-top: 5px;">
-                    <button id="resolveEscalationBtn" class="btn primary" data-i18n="resolveEscalation">Resolve Escalation</button>
-                </div>
-            </div>
+                        <div class="setup-block two-col">
+                            <div class="form-group">
+                                <label for="roundsInput" data-i18n="rounds">Rounds</label>
+                                <input type="number" id="roundsInput" value="3" min="1" max="20">
+                            </div>
+                            <div class="form-group">
+                                <label for="roleSelect">Collaboration Style</label>
+                                <select id="roleSelect">
+                                    <option value="CRITIC">Critic</option>
+                                    <option value="EXPANDER">Expander</option>
+                                    <option value="ARCHITECT">Architect</option>
+                                    <option value="DEV_ADVOCATE">Devil's Advocate</option>
+                                    <option value="FIRST_PRINCIPLES">First Principles</option>
+                                    <option value="INTERVIEWER">Interviewer</option>
+                                    <option value="FIVE_WHYS">Five Whys</option>
+                                    <option value="HISTORIAN_FUTURIST">Time Jump</option>
+                                    <option value="ELI5">ELI5</option>
+                                    <option value="CUSTOM">Custom</option>
+                                </select>
+                            </div>
+                        </div>
 
-            <!-- Human Feedback Section -->
-            <div id="humanModeratorCard" class="card" style="display: none; border-color: var(--primary-color);">
-                <h2 style="color: var(--primary-color);" data-i18n="humanModerator">Human Moderator</h2>
-                <div class="form-group">
-                    <label for="humanFeedbackInput" data-i18n="injectFeedback">Inject Feedback (Course-Correct)</label>
-                    <textarea id="humanFeedbackInput" rows="3" data-i18n-placeholder="feedbackPlaceholder"
-                        placeholder="Type instructions here. The engine will read them and forward them to the next AI in the loop..."></textarea>
-                </div>
-                <div class="actions" style="margin-top: 5px;">
-                    <button id="resumeWithFeedbackBtn" class="btn primary" data-i18n="resumeWithFeedback">Resume with Feedback</button>
-                    <button id="resumeSilentBtn" class="btn secondary" data-i18n="resumeSilently">Resume Silently</button>
-                </div>
-            </div>
+                        <div class="setup-block" id="customRoleInputs" style="display:none;">
+                            <div class="form-group">
+                                <label for="geminiPromptInput">Gemini System Prompt</label>
+                                <textarea id="geminiPromptInput" rows="2" placeholder="Instructions for Gemini..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="chatGPTPromptInput">ChatGPT System Prompt</label>
+                                <textarea id="chatGPTPromptInput" rows="2" placeholder="Instructions for ChatGPT..."></textarea>
+                            </div>
+                        </div>
 
-            <div class="card flex-grow">
-                <div class="header-row">
-                    <h2 data-i18n="logs">Logs</h2>
-                    <div class="mini-actions">
-                        <button id="clearLogsBtn" class="btn link" data-i18n="clear">Clear</button>
-                    </div>
-                </div>
-                <div id="logsArea" class="logs-container">
-                    <div class="log-entry system" data-i18n="readyToStart">Ready to start.</div>
-                </div>
-            </div>
+                        <div class="setup-block">
+                            <div class="form-group">
+                                <label for="topicInput" data-i18n="seedPromptTopic">Seed Prompt / Topic</label>
+                                <textarea id="topicInput" rows="4" data-i18n-placeholder="topicPlaceholder" placeholder="Enter topic or question..."></textarea>
+                            </div>
+                        </div>
 
-            <div id="postRunActionsCard" class="card" style="display: none;">
-                <h2 data-i18n="postRunActions">Post-Run Actions</h2>
-                <div class="row">
-                    <div class="form-group half">
-                        <label for="continueRoundsInput" data-i18n="additionalRounds">Additional Rounds</label>
-                        <input type="number" id="continueRoundsInput" value="2" min="1" max="10">
+                        <div class="setup-block">
+                            <div class="mini-label">Saved Profiles</div>
+                            <div class="profile-controls">
+                                <input id="profileNameInput" type="text" placeholder="Profile name">
+                                <button id="saveProfileBtn" class="btn secondary" type="button">Save Profile</button>
+                            </div>
+                            <div id="profileList" class="profile-list"></div>
+                        </div>
+
+                        <div class="actions">
+                            <button id="startBtn" class="btn primary" data-i18n="startRun">Start Run</button>
+                            <button id="monitorLiveBtn" class="btn secondary" style="display:none;">Monitor Live</button>
+                            <button id="stopBtn" class="btn danger" style="display:none;" data-i18n="stop">Stop</button>
+                        </div>
                     </div>
                 </div>
-                <div class="actions" style="margin-top: 10px;">
-                    <button id="continueBtn" class="btn primary" data-i18n="continue">Continue</button>
-                    <button id="concludeBtn" class="btn secondary" data-i18n="finalConclusion">Final Conclusion</button>
-                </div>
-                <div id="postRunStatus" class="status-text"></div>
-            </div>
 
-            <div class="card">
-                <h2 data-i18n="export">Export</h2>
-                <div class="actions">
-                    <button id="exportLastBtn" class="btn secondary" data-i18n="lastResponse">Last Response</button>
-                    <button id="exportFullBtn" class="btn secondary" data-i18n="fullTranscript">Full Transcript</button>
-                </div>
-                <div id="exportStatus" class="status-text"></div>
-            </div>
-        </div> <!-- End of tabActiveContent -->
+                <div class="zone zone-live card">
+                    <div class="section-head">
+                        <h2>Live Session</h2>
+                        <span class="eyebrow">Monitor the current run, checkpoints, and agent state</span>
+                    </div>
 
-        <!-- History Tab Content -->
+                    <div class="agent-rails">
+                        <div id="geminiRail" class="agent-rail"></div>
+                        <div id="chatGptRail" class="agent-rail"></div>
+                    </div>
+
+                    <div id="framingCard" class="framing-card"></div>
+
+                    <div id="checkpointCards" class="checkpoint-cards"></div>
+
+                    <div class="timeline-head">
+                        <span>Live Timeline</span>
+                        <span id="livePhaseBadge" class="phase-badge">DIVERGE</span>
+                    </div>
+                    <div id="timelineList" class="timeline-list"></div>
+                </div>
+
+                <div class="zone zone-control card">
+                    <div class="section-head">
+                        <h2>Intervention Dock</h2>
+                        <span class="eyebrow">Steer without breaking flow</span>
+                    </div>
+
+                    <div class="dock-actions">
+                        <button id="pauseBtn" class="btn secondary" style="display:none;" data-i18n="pause">Pause</button>
+                        <button id="forceNarrowBtn" class="btn secondary" type="button">Force Narrow</button>
+                        <button id="requestConclusionBtn" class="btn secondary" type="button">Request Conclusion</button>
+                        <button id="reviewEscalationBtn" class="btn secondary" type="button">Review Escalation</button>
+                    </div>
+
+                    <div id="humanModeratorCard" class="dock-card" style="display:none;">
+                        <h3>Moderator Override</h3>
+                        <textarea id="humanFeedbackInput" rows="4" placeholder="Inject steering, constraints, or course-correction..."></textarea>
+                        <div class="actions">
+                            <button id="resumeWithFeedbackBtn" class="btn primary" data-i18n="resumeWithFeedback">Resume with Feedback</button>
+                            <button id="resumeSilentBtn" class="btn secondary" data-i18n="resumeSilently">Resume Silently</button>
+                        </div>
+                    </div>
+
+                    <div id="escalationCard" class="dock-card" style="display:none;">
+                        <h3 data-i18n="escalationTriggered">Escalation Triggered</h3>
+                        <div class="data-pair"><strong>Reason</strong><span id="escReason"></span></div>
+                        <div class="data-pair"><strong>Decision Needed</strong><span id="escDecision"></span></div>
+                        <div class="data-pair"><strong>Recommended</strong><span id="escRecommended"></span></div>
+                        <div class="data-pair"><strong>Next Step</strong><span id="escNextStep"></span></div>
+                        <div class="data-pair"><strong>Options</strong><ul id="escOptions"></ul></div>
+                        <textarea id="escFeedbackInput" rows="4" data-i18n-placeholder="decisionPlaceholder" placeholder="Type your decision here to resolve the escalation..."></textarea>
+                        <button id="resolveEscalationBtn" class="btn primary" data-i18n="resolveEscalation">Resolve Escalation</button>
+                    </div>
+
+                    <div id="postRunActionsCard" class="dock-card" style="display:none;">
+                        <h3>Continue Session</h3>
+                        <div class="two-col">
+                            <div class="form-group">
+                                <label for="continueRoundsInput" data-i18n="additionalRounds">Additional Rounds</label>
+                                <input type="number" id="continueRoundsInput" value="2" min="1" max="10">
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button id="continueBtn" class="btn primary" data-i18n="continue">Continue</button>
+                            <button id="concludeBtn" class="btn secondary" data-i18n="finalConclusion">Final Conclusion</button>
+                        </div>
+                        <div id="postRunStatus" class="status-text"></div>
+                    </div>
+
+                    <div class="dock-card">
+                        <h3>Finales</h3>
+                        <div class="finale-grid">
+                            <button class="btn secondary finale-btn" data-finale="executive" type="button">Executive</button>
+                            <button class="btn secondary finale-btn" data-finale="product" type="button">Product</button>
+                            <button class="btn secondary finale-btn" data-finale="roadmap" type="button">Roadmap</button>
+                            <button class="btn secondary finale-btn" data-finale="risks" type="button">Risks</button>
+                            <button class="btn secondary finale-btn" data-finale="decision" type="button">Decision Memo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="zone zone-output card">
+                    <div class="section-head">
+                        <h2>Outputs</h2>
+                        <span class="eyebrow">Transcript, artifacts, branch actions, and export</span>
+                    </div>
+
+                    <div class="output-tabs">
+                        <button class="output-tab active" data-output-tab="transcript" type="button">Transcript</button>
+                        <button class="output-tab" data-output-tab="highlights" type="button">Highlights</button>
+                        <button class="output-tab" data-output-tab="ideas" type="button">Actionable Ideas</button>
+                        <button class="output-tab" data-output-tab="finales" type="button">Final Synthesis</button>
+                    </div>
+
+                    <div id="outputTranscript" class="output-panel active"></div>
+                    <div id="outputHighlights" class="output-panel"></div>
+                    <div id="outputIdeas" class="output-panel"></div>
+                    <div id="outputFinales" class="output-panel"></div>
+
+                    <div class="branch-section">
+                        <div class="timeline-head">
+                            <span>Branch Picker</span>
+                            <span class="eyebrow">Fork from checkpoints and compare later</span>
+                        </div>
+                        <div id="branchList" class="branch-list"></div>
+                    </div>
+
+                    <div class="actions">
+                        <button id="exportLastBtn" class="btn secondary" data-i18n="lastResponse">Last Response</button>
+                        <button id="exportFullBtn" class="btn secondary" data-i18n="fullTranscript">Full Transcript</button>
+                    </div>
+                    <div id="exportStatus" class="status-text"></div>
+                </div>
+            </section>
+        </div>
+
         <div id="tabHistoryContent" class="tab-content">
             <div class="card flex-grow">
                 <div class="header-row">
@@ -219,25 +287,19 @@
                     </div>
                 </div>
                 <div id="historyList" class="history-list">
-                    <!-- History items injected here -->
                     <div class="status-text" data-i18n="loadingHistory">Loading history...</div>
                 </div>
             </div>
-
-            <!-- History Detail View (Hidden initially) -->
-            <div id="historyDetailView" class="card" style="display: none; margin-top: 10px;">
+            <div id="historyDetailView" class="card" style="display:none;">
                 <div class="header-row">
                     <h2 id="historyDetailTitle" data-i18n="sessionDetails">Session Details</h2>
                     <div class="mini-actions">
                         <button id="closeHistoryDetailBtn" class="btn link" data-i18n="close">Close</button>
                     </div>
                 </div>
-                <div id="historyDetailContent" class="logs-container" style="height: 250px;">
-                </div>
+                <div id="historyDetailContent" class="output-panel active" style="max-height:320px;"></div>
             </div>
         </div>
-
-    </div>
+    </div>
 </body>
-
 </html>

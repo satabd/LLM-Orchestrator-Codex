@@ -1,6 +1,22 @@
-import { TranscriptEntry, BrainstormSession, EscalationPayload } from './types.js';
+import {
+    TranscriptEntry,
+    BrainstormSession,
+    EscalationPayload,
+    SessionCheckpoint,
+    SessionArtifacts,
+    ModeratorDecision,
+    FinaleType
+} from './types.js';
 
-export type { TranscriptEntry, BrainstormSession, EscalationPayload };
+export type {
+    TranscriptEntry,
+    BrainstormSession,
+    EscalationPayload,
+    SessionCheckpoint,
+    SessionArtifacts,
+    ModeratorDecision,
+    FinaleType
+};
 
 const DB_NAME = 'LLMOrchestratorDB';
 const DB_VERSION = 1;
@@ -23,15 +39,23 @@ function openDB(): Promise<IDBDatabase> {
     });
 }
 
-export async function createSession(session: BrainstormSession): Promise<void> {
+async function putSession(session: BrainstormSession): Promise<void> {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
-        const request = store.add(session);
+        const request = store.put(session);
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
     });
+}
+
+export async function createSession(session: BrainstormSession): Promise<void> {
+    return putSession(session);
+}
+
+export async function createBranchSession(session: BrainstormSession): Promise<void> {
+    return putSession(session);
 }
 
 export async function getSession(id: string): Promise<BrainstormSession | undefined> {
@@ -45,20 +69,50 @@ export async function getSession(id: string): Promise<BrainstormSession | undefi
     });
 }
 
+export async function patchSession(id: string, patch: Partial<BrainstormSession>): Promise<void> {
+    const session = await getSession(id);
+    if (!session) throw new Error("Session not found");
+    await putSession({ ...session, ...patch });
+}
+
 export async function updateSession(id: string, entry: TranscriptEntry): Promise<void> {
-    const db = await openDB();
     const session = await getSession(id);
     if (!session) throw new Error("Session not found");
 
-    session.transcript.push(entry);
+    const transcript = session.transcript || [];
+    transcript.push(entry);
+    await putSession({ ...session, transcript });
+}
 
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.put(session);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-    });
+export async function saveArtifacts(id: string, artifacts: SessionArtifacts): Promise<void> {
+    await patchSession(id, { artifacts });
+}
+
+export async function appendCheckpoint(id: string, checkpoint: SessionCheckpoint): Promise<void> {
+    const session = await getSession(id);
+    if (!session) throw new Error("Session not found");
+
+    const checkpoints = session.checkpoints || [];
+    checkpoints.push(checkpoint);
+    await putSession({ ...session, checkpoints });
+}
+
+export async function appendModeratorDecision(id: string, decision: ModeratorDecision): Promise<void> {
+    const session = await getSession(id);
+    if (!session) throw new Error("Session not found");
+
+    const moderatorDecisions = session.moderatorDecisions || [];
+    moderatorDecisions.push(decision);
+    await putSession({ ...session, moderatorDecisions });
+}
+
+export async function saveFinalOutput(id: string, finaleType: FinaleType, text: string): Promise<void> {
+    const session = await getSession(id);
+    if (!session) throw new Error("Session not found");
+
+    const finalOutputs = { ...(session.finalOutputs || {}) };
+    finalOutputs[finaleType] = text;
+    await putSession({ ...session, finalOutputs });
 }
 
 export async function getAllSessions(): Promise<BrainstormSession[]> {
@@ -68,7 +122,6 @@ export async function getAllSessions(): Promise<BrainstormSession[]> {
         const store = tx.objectStore(STORE_NAME);
         const request = store.getAll();
         request.onsuccess = () => {
-            // Sort by timestamp descending (newest first)
             const sessions: BrainstormSession[] = request.result;
             sessions.sort((a, b) => b.timestamp - a.timestamp);
             resolve(sessions);
@@ -89,24 +142,10 @@ export async function deleteSession(id: string): Promise<void> {
 }
 
 export async function appendEscalation(sessionId: string, escalation: EscalationPayload): Promise<void> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.get(sessionId);
+    const session = await getSession(sessionId);
+    if (!session) throw new Error("Session not found");
 
-        request.onsuccess = () => {
-            const session = request.result;
-            if (session) {
-                if (!session.escalations) {
-                    session.escalations = [];
-                }
-                session.escalations.push(escalation);
-                store.put(session);
-            }
-        };
-
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-    });
+    const escalations = session.escalations || [];
+    escalations.push(escalation);
+    await putSession({ ...session, escalations });
 }
